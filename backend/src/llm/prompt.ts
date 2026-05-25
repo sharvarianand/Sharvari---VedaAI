@@ -14,6 +14,13 @@ const TYPE_LABEL: Record<string, string> = {
   "fill-blanks": "Fill in the Blanks (use ____ for the blank)",
 };
 
+const LANGUAGE_INSTRUCTION: Record<string, string> = {
+  english: "Generate the entire paper in English.",
+  hindi: "Generate the entire paper in Hindi (Devanagari script).",
+  bilingual:
+    "Generate the paper bilingually: write each question and answer in both English and Hindi (Devanagari script), with English first followed by Hindi translation.",
+};
+
 /**
  * Build the system + user prompt pair for a generation request.
  *
@@ -50,14 +57,18 @@ export function buildPrompt(input: GenerationInput): {
   const regenerationLine = input.regenerationInstructions?.trim()
     ? `Revision instructions for this regeneration:\n${input.regenerationInstructions.trim()}`
     : `No revision-specific instructions were provided.`;
+  const languageLine = LANGUAGE_INSTRUCTION[input.language] ?? LANGUAGE_INSTRUCTION.english;
 
   const system = [
     "You are an experienced school teacher generating a fair, exam-quality question paper.",
     "Output MUST be a single JSON object that strictly conforms to the schema described below.",
     "Do not include markdown, prose, or commentary outside the JSON.",
+    "Generate a fresh paper each time; do not reuse the same wording or question order from earlier attempts.",
     "Distribute difficulty roughly as 30% easy, 50% moderate, 20% hard.",
     "Group questions into at least one section (Section A, B, ...). Use multiple sections when more than one question type is requested.",
     "Each question must have a unique id (q1, q2, q3, ...) and the answerKey must reference those ids.",
+    "For MCQs, put each option on a new line inside the question text, labelled (A), (B), (C), and (D).",
+    "Be concise and respond with ONLY the JSON object. No extra text.",
   ].join(" ");
 
   const user = `Generate a question paper with the following parameters.
@@ -77,8 +88,15 @@ ${materialExcerptLine}
 
 ${regenerationLine}
 
+Language: ${languageLine}
+
 Additional instructions from the teacher:
 ${input.additionalInstructions || "(none)"}
+
+Formatting requirements:
+- The paper must be clean and readable.
+- MCQ options must appear on separate lines.
+- If regeneration instructions are present, apply them concretely instead of ignoring them.
 
 Return JSON of the shape:
 {
@@ -106,3 +124,34 @@ every question id appears exactly once in the answerKey.`;
 
   return { system, user };
 }
+
+/**
+ * Build a prompt for A/B variant generation. Returns the same schema but
+ * with instructions to create a second variant (Set B) with different questions
+ * at the same difficulty distribution.
+ */
+export function buildVariantPrompt(input: GenerationInput): {
+  system: string;
+  user: string;
+} {
+  const base = buildPrompt(input);
+  const variantUser = `${base.user}
+
+IMPORTANT ADDITIONAL REQUIREMENT — A/B VARIANT GENERATION:
+Generate TWO distinct variants (Set A and Set B) of this paper.
+- Both sets must have the SAME difficulty distribution, SAME number of questions, SAME total marks, and SAME section structure.
+- But Set B must have COMPLETELY DIFFERENT questions (different wording, different problems, different scenarios).
+- This is to prevent copying during examinations in Indian schools.
+
+Return a JSON object with this shape:
+{
+  "setA": { ...QuestionPaper },
+  "setB": { ...QuestionPaper }
+}
+
+Where each QuestionPaper follows the exact schema described above.
+Set A's title should include "(Set A)" and Set B should include "(Set B)" in the section headings.`;
+
+  return { system: base.system, user: variantUser };
+}
+

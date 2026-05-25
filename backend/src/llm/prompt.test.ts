@@ -9,6 +9,8 @@ describe("buildPrompt", () => {
       subject: "Science",
       className: "5th",
       additionalInstructions: "Focus on practical examples.",
+      language: "english",
+      generateVariants: false,
       questionTypes: [
         { type: "mcq", count: 4, marksPerQuestion: 1 },
         { type: "short", count: 3, marksPerQuestion: 2 },
@@ -28,6 +30,8 @@ describe("buildPrompt", () => {
       subject: "Math",
       className: "8th",
       additionalInstructions: "",
+      language: "english",
+      generateVariants: false,
       questionTypes: [{ type: "numerical", count: 2, marksPerQuestion: 5 }],
     });
     expect(user).toMatch(/No reference material/);
@@ -40,6 +44,8 @@ describe("buildPrompt", () => {
       subject: "Math",
       className: "8th",
       additionalInstructions: "",
+      language: "english",
+      generateVariants: false,
       questionTypes: [{ type: "long", count: 1, marksPerQuestion: 5 }],
       material: {
         name: "ch-electricity.pdf",
@@ -59,6 +65,8 @@ describe("buildPrompt", () => {
       subject: "Math",
       className: "8th",
       additionalInstructions: "",
+      language: "english",
+      generateVariants: false,
       regenerationInstructions: "Make section B harder and reduce MCQs.",
       questionTypes: [{ type: "long", count: 1, marksPerQuestion: 5 }],
     });
