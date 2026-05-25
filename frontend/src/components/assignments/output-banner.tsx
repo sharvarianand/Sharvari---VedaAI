@@ -1,6 +1,7 @@
 "use client";
 
-import { Download, PencilLine, RefreshCw } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Download, PencilLine, RefreshCw, FileText, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 interface OutputBannerProps {
@@ -12,6 +13,7 @@ interface OutputBannerProps {
   downloading?: boolean;
   regenerating?: boolean;
   editing?: boolean;
+  onDownloadDocx?: (mode: "questions" | "answers" | "both") => void;
 }
 
 export function OutputBanner({
@@ -23,25 +25,97 @@ export function OutputBanner({
   downloading = false,
   regenerating = false,
   editing = false,
+  onDownloadDocx,
 }: OutputBannerProps) {
+  const [downloadOpen, setDownloadOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDownloadOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
   return (
     <div className="card-elevated rounded-3xl bg-surface-dark px-5 py-6 text-white sm:px-7 print:hidden">
       <p className="text-[15px] leading-relaxed">
         <span className="font-semibold">Certainly, {teacherName}!</span> {description}
       </p>
-      <div className="mt-5 flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={onDownload}
-          disabled={downloading}
-          className={cn(
-            "inline-flex items-center gap-2 rounded-full bg-surface px-4 py-2",
-            "text-[13px] font-semibold text-ink transition hover:brightness-95 disabled:opacity-60"
+      <div className="mt-5 flex flex-wrap gap-3 relative">
+        <div className="relative" ref={dropdownRef}>
+          <button
+            type="button"
+            onClick={() => setDownloadOpen(!downloadOpen)}
+            disabled={downloading}
+            className={cn(
+              "inline-flex items-center gap-2 rounded-full bg-surface px-4 py-2",
+              "text-[13px] font-semibold text-ink transition hover:brightness-95 disabled:opacity-60"
+            )}
+          >
+            <Download className="h-4 w-4" />
+            {downloading ? "Preparing Export…" : "Export"}
+            <ChevronDown className="h-4 w-4 ml-1" />
+          </button>
+          
+          {downloadOpen && (
+            <div className="absolute left-0 top-full mt-2 w-64 rounded-xl bg-white shadow-xl ring-1 ring-black/5 z-50 overflow-hidden text-ink text-[13px]">
+              <div className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-ink-muted bg-surface-muted">
+                Export as PDF
+              </div>
+              <button
+                type="button"
+                className="w-full text-left px-4 py-2.5 hover:bg-surface-muted flex items-center gap-2"
+                onClick={() => {
+                  setDownloadOpen(false);
+                  onDownload?.();
+                }}
+              >
+                <FileText className="h-4 w-4 text-brand" />
+                Download PDF (Both)
+              </button>
+              
+              <div className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-ink-muted bg-surface-muted border-t border-line">
+                Export as Word (.doc)
+              </div>
+              <button
+                type="button"
+                className="w-full text-left px-4 py-2.5 hover:bg-surface-muted flex items-center gap-2"
+                onClick={() => {
+                  setDownloadOpen(false);
+                  onDownloadDocx?.("both");
+                }}
+              >
+                <FileText className="h-4 w-4 text-blue-500" />
+                Both (Paper & Answer Key)
+              </button>
+              <button
+                type="button"
+                className="w-full text-left px-4 py-2.5 hover:bg-surface-muted flex items-center gap-2"
+                onClick={() => {
+                  setDownloadOpen(false);
+                  onDownloadDocx?.("questions");
+                }}
+              >
+                <FileText className="h-4 w-4 text-blue-500" />
+                Question Paper Only
+              </button>
+              <button
+                type="button"
+                className="w-full text-left px-4 py-2.5 hover:bg-surface-muted flex items-center gap-2"
+                onClick={() => {
+                  setDownloadOpen(false);
+                  onDownloadDocx?.("answers");
+                }}
+              >
+                <FileText className="h-4 w-4 text-blue-500" />
+                Answer Key Only
+              </button>
+            </div>
           )}
-        >
-          <Download className="h-4 w-4" />
-          {downloading ? "Preparing PDF…" : "Download as PDF"}
-        </button>
+        </div>
         {onRegenerate && (
           <button
             type="button"

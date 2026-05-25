@@ -19,7 +19,12 @@ function formatTimestamp(value: string): string {
 export function PaperVersionHistory({
   versions,
   currentVersion,
-}: PaperVersionHistoryProps) {
+  onRestore,
+  restoringVersion,
+}: PaperVersionHistoryProps & { 
+  onRestore?: (version: number) => void;
+  restoringVersion?: number | null;
+}) {
   const ordered = [...versions].sort((a, b) => b.version - a.version);
 
   return (
@@ -55,11 +60,20 @@ export function PaperVersionHistory({
                     {formatTimestamp(version.createdAt)}
                   </p>
                 </div>
-                {version.version === currentVersion && (
+                {version.version === currentVersion ? (
                   <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-800">
                     Current
                   </span>
-                )}
+                ) : onRestore ? (
+                  <button
+                    type="button"
+                    onClick={() => onRestore(version.version)}
+                    disabled={restoringVersion === version.version}
+                    className="rounded-full bg-surface px-3 py-1 text-[11px] font-semibold text-ink ring-1 ring-line-strong hover:bg-surface-muted disabled:opacity-50"
+                  >
+                    {restoringVersion === version.version ? "Restoring…" : "Restore"}
+                  </button>
+                ) : null}
               </div>
               {version.note && (
                 <p className="mt-3 text-[13px] text-ink">{version.note}</p>

@@ -9,11 +9,15 @@ import { QuestionPaperView } from "@/components/assignments/question-paper";
 import { GenerationProgressView } from "@/components/assignments/generation-progress";
 import { QuestionPaperEditor } from "@/components/assignments/question-paper-editor";
 import { PaperVersionHistory } from "@/components/assignments/paper-version-history";
+import { PaperAnalytics } from "@/components/assignments/paper-analytics";
+import { TextDiff } from "@/components/ui/text-diff";
 import { useAssignmentsStore } from "@/store/assignments-store";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { useAssignmentSocket } from "@/hooks/use-assignment-socket";
+import toast from "react-hot-toast";
 import { api, ApiError } from "@/lib/api";
 import { API_BASE_URL } from "@/lib/env";
+import { exportDocx } from "@/lib/export";
 import type { QuestionPaper } from "@/types/assignment";
 
 interface PageProps {
@@ -45,6 +49,20 @@ export default function AssignmentOutputPage({ params }: PageProps) {
   const [editablePaper, setEditablePaper] = useState<QuestionPaper | null>(null);
   const [saveNote, setSaveNote] = useState("");
   const [regenerateInstructions, setRegenerateInstructions] = useState("");
+  const [restoringVersion, setRestoringVersion] = useState<number | null>(null);
+  const [activeVariant, setActiveVariant] = useState<"A" | "B">("A");
+  const [diffMode, setDiffMode] = useState(false);
+  const [previousPaperStr, setPreviousPaperStr] = useState<string | null>(null);
+  const [lockedQuestionIds, setLockedQuestionIds] = useState<Set<string>>(new Set());
+
+  const toggleLock = useCallback((qId: string) => {
+    setLockedQuestionIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(qId)) next.delete(qId);
+      else next.add(qId);
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,6 +91,7 @@ export default function AssignmentOutputPage({ params }: PageProps) {
 
   useEffect(() => {
     if (!assignment?.paper) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setEditableTitle(assignment.title);
     setEditablePaper(clonePaper(assignment.paper));
     setSaveNote("");
@@ -98,14 +117,17 @@ export default function AssignmentOutputPage({ params }: PageProps) {
     onPdfReady: async (url) => {
       try {
         await triggerPdfDownload(url);
+        toast.success("PDF downloaded successfully!");
       } catch {
         setPdfError("PDF download failed");
+        toast.error("PDF download failed");
       } finally {
         setDownloading(false);
       }
     },
     onPdfFailed: (error) => {
       setPdfError(error);
+      toast.error(error);
       setDownloading(false);
     },
   });
@@ -134,21 +156,41 @@ export default function AssignmentOutputPage({ params }: PageProps) {
   };
 
   const handleRegenerate = async () => {
+    if (assignment?.paper) {
+      setPreviousPaperStr(JSON.stringify(assignment.paper, null, 2));
+    }
     setRegenerating(true);
     setFetchError(null);
     try {
+      let finalInstructions = regenerateInstructions.trim();
+      if (lockedQuestionIds.size > 0 && assignment?.paper) {
+        const lockedTexts: string[] = [];
+        assignment.paper.sections.forEach(s => {
+          s.questions.forEach(q => {
+            if (lockedQuestionIds.has(q.id)) {
+              lockedTexts.push(q.text);
+            }
+          });
+        });
+        if (lockedTexts.length > 0) {
+          finalInstructions += `\n\nCRITICAL INSTRUCTION: You MUST perfectly retain the following exact questions in the new paper (do not change or remove them):\n${lockedTexts.map((t, i) => `${i+1}. ${t}`).join("\n")}`;
+        }
+      }
+
       const doc = await api.regenerateAssignment(
         id,
-        regenerateInstructions.trim() || undefined
+        finalInstructions || undefined
       );
       upsertAssignment(doc);
       setShowRegeneratePanel(false);
       setRegenerateInstructions("");
       setEditorOpen(false);
+      setDiffMode(true); // Turn on diff mode so when it completes, user sees changes
+      setLockedQuestionIds(new Set()); // clear locks
     } catch (err) {
-      setFetchError(
-        err instanceof ApiError ? err.message : "Regeneration failed"
-      );
+      const msg = err instanceof ApiError ? err.message : "Regeneration failed";
+      setFetchError(msg);
+      toast.error(msg);
     } finally {
       setRegenerating(false);
     }
@@ -171,10 +213,27 @@ export default function AssignmentOutputPage({ params }: PageProps) {
       upsertAssignment(doc);
       setEditorOpen(false);
       setSaveNote("");
+      toast.success("Edits saved successfully");
     } catch (err) {
-      setFetchError(err instanceof ApiError ? err.message : "Could not save edits");
+      const msg = err instanceof ApiError ? err.message : "Could not save edits";
+      setFetchError(msg);
+      toast.error(msg);
     } finally {
       setSavingEdits(false);
+    }
+  };
+
+  const handleRestore = async (version: number) => {
+    setRestoringVersion(version);
+    try {
+      const doc = await api.restoreVersion(id, version);
+      upsertAssignment(doc);
+      toast.success(`Restored to version ${version}`);
+      setDiffMode(false);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Restore failed");
+    } finally {
+      setRestoringVersion(null);
     }
   };
 
@@ -231,6 +290,11 @@ export default function AssignmentOutputPage({ params }: PageProps) {
               teacherName="Teacher"
               description={`Here is your customized question paper for ${assignment.paper.className} ${assignment.paper.subject}:`}
               onDownload={handleDownload}
+              onDownloadDocx={(mode) => exportDocx(
+                activeVariant === "A" ? assignment.paper! : (assignment.variantPaper || assignment.paper!),
+                mode,
+                assignment.title
+              )}
               onRegenerate={handleRegenerate}
               onEdit={() => {
                 setEditorOpen((open) => !open);
@@ -249,14 +313,40 @@ export default function AssignmentOutputPage({ params }: PageProps) {
                   setEditorOpen(false);
                   setFetchError(null);
                 }}
-                className="rounded-full bg-surface px-4 py-2 text-[13px] font-semibold text-ink ring-1 ring-line-strong"
+                className="rounded-full bg-surface px-4 py-2 text-[13px] font-semibold text-ink ring-1 ring-line-strong hover:bg-surface-muted"
               >
                 {showRegeneratePanel ? "Hide Regenerate Notes" : "Regenerate with Instructions"}
               </button>
+              {previousPaperStr && (
+                <button
+                  type="button"
+                  onClick={() => setDiffMode(!diffMode)}
+                  className={`rounded-full px-4 py-2 text-[13px] font-semibold ring-1 ${diffMode ? "bg-brand text-white ring-brand" : "bg-surface text-ink ring-line-strong hover:bg-surface-muted"}`}
+                >
+                  {diffMode ? "Hide Diff" : "Show Changes"}
+                </button>
+              )}
               <span className="rounded-full bg-surface-muted px-4 py-2 text-[13px] font-medium text-ink-muted">
                 Current version: v{assignment.currentVersion || 1}
               </span>
             </div>
+            
+            {assignment.variantPaper && (
+              <div className="flex bg-surface p-1 rounded-full w-fit ring-1 ring-line-strong print:hidden">
+                <button
+                  onClick={() => setActiveVariant("A")}
+                  className={`px-6 py-1.5 rounded-full text-[13px] font-bold transition-all ${activeVariant === "A" ? "bg-surface-dark text-white" : "text-ink-muted hover:text-ink"}`}
+                >
+                  Set A
+                </button>
+                <button
+                  onClick={() => setActiveVariant("B")}
+                  className={`px-6 py-1.5 rounded-full text-[13px] font-bold transition-all ${activeVariant === "B" ? "bg-surface-dark text-white" : "text-ink-muted hover:text-ink"}`}
+                >
+                  Set B
+                </button>
+              </div>
+            )}
             {fetchError && (
               <p className="rounded-xl bg-red-50 px-4 py-2 text-[13px] text-danger print:hidden">
                 {fetchError}
@@ -318,11 +408,32 @@ export default function AssignmentOutputPage({ params }: PageProps) {
                 saving={savingEdits}
               />
             )}
+            
+            {!editorOpen && !diffMode && assignment.paper && (
+              <PaperAnalytics paper={activeVariant === "A" ? assignment.paper : (assignment.variantPaper || assignment.paper)} />
+            )}
+
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-              <QuestionPaperView paper={assignment.paper} />
+              {diffMode && previousPaperStr ? (
+                <div className="card-elevated rounded-3xl bg-surface p-6 font-mono text-[13px] leading-relaxed max-w-none overflow-x-auto">
+                  <h3 className="text-[16px] font-bold mb-4 font-sans text-ink">Smart Diff View: What Changed</h3>
+                  <TextDiff 
+                    oldText={previousPaperStr} 
+                    newText={JSON.stringify(activeVariant === "A" ? assignment.paper : (assignment.variantPaper || assignment.paper), null, 2)} 
+                  />
+                </div>
+              ) : (
+                <QuestionPaperView 
+                  paper={activeVariant === "A" ? assignment.paper : (assignment.variantPaper || assignment.paper)} 
+                  lockedQuestionIds={lockedQuestionIds}
+                  onToggleLock={toggleLock}
+                />
+              )}
               <PaperVersionHistory
                 versions={assignment.paperVersions}
                 currentVersion={assignment.currentVersion}
+                onRestore={handleRestore}
+                restoringVersion={restoringVersion}
               />
             </div>
           </>

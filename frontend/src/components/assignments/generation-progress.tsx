@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 
@@ -11,8 +12,10 @@ interface GenerationProgressProps {
 
 const STAGE_LABELS: Record<string, string> = {
   queued: "Queued for generation…",
+  "reading-material": "Reading your uploaded material…",
   prompting: "Building prompt…",
   "calling-llm": "Generating questions with AI…",
+  structuring: "Cleaning and structuring the paper…",
   saving: "Saving question paper…",
   ready: "Complete",
   failed: "Generation failed",
@@ -25,6 +28,26 @@ export function GenerationProgressView({
 }: GenerationProgressProps) {
   const label = STAGE_LABELS[stage] ?? "Generating question paper…";
   const clamped = Math.min(100, Math.max(0, percent));
+  const [displayPercent, setDisplayPercent] = useState(clamped);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDisplayPercent((current) => {
+      if (clamped < current) return clamped;
+      return current;
+    });
+  }, [clamped]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setDisplayPercent((current) => {
+        if (current >= clamped) return current;
+        const step = clamped >= 90 ? 1 : 2;
+        return Math.min(clamped, current + step);
+      });
+    }, 120);
+    return () => window.clearInterval(id);
+  }, [clamped]);
 
   return (
     <div
@@ -41,14 +64,14 @@ export function GenerationProgressView({
       <div className="mt-8 h-2 w-full max-w-xs overflow-hidden rounded-full bg-surface-muted">
         <div
           className="h-full rounded-full bg-brand transition-all duration-500"
-          style={{ width: `${clamped}%` }}
+          style={{ width: `${displayPercent}%` }}
           role="progressbar"
-          aria-valuenow={clamped}
+          aria-valuenow={displayPercent}
           aria-valuemin={0}
           aria-valuemax={100}
         />
       </div>
-      <p className="mt-2 text-[12px] text-ink-subtle">{clamped}%</p>
+      <p className="mt-2 text-[12px] text-ink-subtle">{displayPercent}%</p>
     </div>
   );
 }
