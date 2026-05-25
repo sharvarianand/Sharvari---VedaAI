@@ -144,6 +144,16 @@ npm run typecheck  # Run strict TS compilation
 
 ---
 
+## ☁️ Deployment
+
+The application architecture relies on a separation of concerns for deployment:
+
+- **Frontend (Next.js):** Deployed on **Vercel** for optimal Edge routing and static generation.
+- **Backend (Node.js/Express):** Deployed on **Hugging Face Spaces (Docker)**. A custom GitHub Actions CI/CD pipeline (`.github/workflows/deploy.yml`) has been configured to automatically package the backend environment and sync it to Hugging Face on every push to `main`.
+- **Infrastructure:** Powered by **MongoDB Atlas** (Database) and **Upstash Redis** (Job Queues/BullMQ).
+
+---
+
 ## 💡 Design Decisions
 
 1. **No Raw Markdown Parsing in UI:** Many AI apps just pipe `ReactMarkdown` to the screen. VedaAI enforces structured JSON generation, mapping exactly to React components (`Section`, `Question`, `AnswerKey`). This allows for semantic rendering, precise PDF exports, and deep analytics.
