@@ -49,25 +49,25 @@ Built for scale, the architecture aggressively separates the fast, synchronous H
 
 ```mermaid
 flowchart LR
-  subgraph frontend [Next.js Frontend (React + Zustand)]
-    UI[React Components]
-    Zustand[Zustand Store]
-    API[REST Client]
-    WS[Socket.IO Client]
+  subgraph frontend ["Next.js Frontend (React + Zustand)"]
+    UI["React Components"]
+    Zustand["Zustand Store"]
+    API["REST Client"]
+    WS["Socket.IO Client"]
   end
 
-  subgraph backend [Express Backend (Node.js)]
-    Routes[REST API]
-    SIO[Socket.IO Server]
-    GenQ[Generation Queue]
-    PdfQ[PDF Queue]
-    GenW[Generation Worker]
-    PdfW[PDF Worker]
-    LLM[LLM Orchestration]
+  subgraph backend ["Express Backend (Node.js)"]
+    Routes["REST API"]
+    SIO["Socket.IO Server"]
+    GenQ["Generation Queue"]
+    PdfQ["PDF Queue"]
+    GenW["Generation Worker"]
+    PdfW["PDF Worker"]
+    LLM["LLM Orchestration"]
   end
 
-  Mongo[(MongoDB)]
-  Redis[(Redis)]
+  Mongo[("MongoDB")]
+  Redis[("Redis")]
 
   UI -->|State Updates| Zustand
   UI -->|HTTP Requests| API --> Routes
