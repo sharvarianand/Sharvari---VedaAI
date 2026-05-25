@@ -57,7 +57,7 @@ export function useAssignmentSocket(
 
     const socket = io(WS_BASE_URL, {
       path: "/socket.io",
-      transports: ["websocket", "polling"],
+      transports: ["polling", "websocket"],
       autoConnect: true,
     });
     socketRef.current = socket;
