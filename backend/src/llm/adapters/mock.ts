@@ -196,6 +196,16 @@ export class MockLlmAdapter implements LlmAdapter {
       ].join("|")
     );
     const revisionNote = input.regenerationInstructions?.trim();
+    const lockedTextsQueue: string[] = [];
+    if (revisionNote?.includes("You MUST perfectly retain")) {
+      const match = revisionNote.match(/\d+\.\s+([\s\S]*?)(?=\n\d+\.\s+|$)/g);
+      if (match) {
+        match.forEach(m => {
+          const lockedText = m.replace(/^\d+\.\s+/, "").trim();
+          if (lockedText.length > 5) lockedTextsQueue.push(lockedText);
+        });
+      }
+    }
 
     const sections = input.questionTypes.map((qt, sIdx) => {
       const tpl = TEMPLATES[qt.type];
@@ -217,14 +227,8 @@ export class MockLlmAdapter implements LlmAdapter {
         }
 
         // Try to inject locked questions if any are present in the instructions
-        if (revisionNote?.includes("You MUST perfectly retain")) {
-          const match = revisionNote.match(/\d+\.\s+([\s\S]*?)(?=\n\d+\.\s+|$)/g);
-          if (match && match[i]) {
-             const lockedText = match[i].replace(/^\d+\.\s+/, "").trim();
-             if (lockedText.length > 5) {
-                text = lockedText;
-             }
-          }
+        if (lockedTextsQueue.length > 0) {
+           text = lockedTextsQueue.shift()!;
         }
 
         return {
