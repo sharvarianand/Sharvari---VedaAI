@@ -126,7 +126,7 @@ export function PaperAnalytics({ paper }: PaperAnalyticsProps) {
         <div className="rounded-2xl bg-surface-muted p-4 border border-line flex flex-col items-center justify-center min-h-[220px]">
           <h3 className="text-[13px] font-semibold text-ink-muted mb-2 w-full">Question Difficulty</h3>
           <div className="h-[140px] w-full">
-            <ResponsiveContainer width="100%" height="100%" minWidth={10} minHeight={140}>
+            <ResponsiveContainer width="100%" height={140} minWidth={10} minHeight={140}>
               <PieChart>
                 <Pie
                   data={stats.difficulty}
@@ -159,7 +159,7 @@ export function PaperAnalytics({ paper }: PaperAnalyticsProps) {
         <div className="rounded-2xl bg-surface-muted p-4 border border-line flex flex-col min-h-[220px] lg:col-span-1 md:col-span-2">
           <h3 className="text-[13px] font-semibold text-ink-muted mb-4">Marks by Difficulty</h3>
           <div className="h-[140px] w-full mt-auto">
-            <ResponsiveContainer width="100%" height="100%" minWidth={10} minHeight={140}>
+            <ResponsiveContainer width="100%" height={140} minWidth={10} minHeight={140}>
               <BarChart data={stats.marksDistribution} margin={{ top: 0, right: 0, left: -25, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={COLORS.muted} />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#6b6b6b' }} dy={5} />
