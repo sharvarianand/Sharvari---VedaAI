@@ -1,0 +1,102 @@
+@import "tailwindcss";
+
+/* -----------------------------------------------------------------
+ * VedaAI Design Tokens
+ * ---------------------------------------------------------------*/
+:root {
+  /* Surfaces */
+  --color-app-bg: #ededed;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f5f5f5;
+  --color-surface-dark: #1a1a1a;
+
+  /* Brand */
+  --color-brand: #f04e23;
+  --color-brand-soft: #ff7a45;
+  --color-accent: #22c55e;
+
+  /* Text */
+  --color-ink: #1a1a1a;
+  --color-ink-muted: #6b6b6b;
+  --color-ink-subtle: #9a9a9a;
+
+  /* Lines */
+  --color-line: #e5e5e5;
+  --color-line-strong: #d4d4d4;
+
+  /* Status */
+  --color-danger: #ef4444;
+}
+
+@theme inline {
+  --color-app-bg: var(--color-app-bg);
+  --color-surface: var(--color-surface);
+  --color-surface-muted: var(--color-surface-muted);
+  --color-surface-dark: var(--color-surface-dark);
+  --color-brand: var(--color-brand);
+  --color-brand-soft: var(--color-brand-soft);
+  --color-accent: var(--color-accent);
+  --color-ink: var(--color-ink);
+  --color-ink-muted: var(--color-ink-muted);
+  --color-ink-subtle: var(--color-ink-subtle);
+  --color-line: var(--color-line);
+  --color-line-strong: var(--color-line-strong);
+  --color-danger: var(--color-danger);
+
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+
+  --radius-card: 18px;
+  --radius-pill: 9999px;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--color-app-bg);
+  color: var(--color-ink);
+  font-family: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* The signature gradient ring used on the "Create Assignment" CTA */
+.cta-gradient-ring {
+  background:
+    linear-gradient(var(--color-surface-dark), var(--color-surface-dark)) padding-box,
+    linear-gradient(135deg, #ff8a3d 0%, #f04e23 50%, #ff8a3d 100%) border-box;
+  border: 2px solid transparent;
+}
+
+/* Subtle elevation for the floating dashboard cards */
+.card-elevated {
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.02),
+    0 8px 24px -12px rgba(0, 0, 0, 0.08);
+}
+
+/* Hide native number-input spinners (custom steppers used instead) */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Scrollbar polish */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #d4d4d4;
+  border-radius: 9999px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
