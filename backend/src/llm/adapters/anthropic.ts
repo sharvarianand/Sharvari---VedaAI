@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { buildPrompt } from "../prompt.js";
-import { parsePaper } from "../parser.js";
-import { LlmGenerationError, type GenerationInput, type LlmAdapter, type QuestionPaper } from "../types.js";
+import { buildPrompt, buildVariantPrompt } from "../prompt.js";
+import { parsePaper, parseVariants } from "../parser.js";
+import { LlmGenerationError, type GenerationInput, type LlmAdapter, type GenerationResult } from "../types.js";
 
 /**
  * Anthropic Claude adapter using the Messages API.
@@ -17,8 +17,9 @@ export class AnthropicAdapter implements LlmAdapter {
     this.model = model;
   }
 
-  async generatePaper(input: GenerationInput): Promise<QuestionPaper> {
-    const { system, user } = buildPrompt(input);
+  async generatePaper(input: GenerationInput): Promise<GenerationResult> {
+    const useVariants = input.generateVariants ?? false;
+    const { system, user } = useVariants ? buildVariantPrompt(input) : buildPrompt(input);
     try {
       const response = await this.client.messages.create({
         model: this.model,
@@ -30,7 +31,14 @@ export class AnthropicAdapter implements LlmAdapter {
       const part = response.content.find((c) => c.type === "text");
       const raw = part?.type === "text" ? part.text : "";
       if (!raw) throw new LlmGenerationError("Anthropic returned no text content");
-      return parsePaper(raw);
+      
+      if (useVariants) {
+        const { setA, setB } = parseVariants(raw);
+        return { paper: setA, variantPaper: setB };
+      }
+
+      const paper = parsePaper(raw);
+      return { paper };
     } catch (err) {
       if (err instanceof LlmGenerationError) throw err;
       throw new LlmGenerationError("Anthropic request failed", err);

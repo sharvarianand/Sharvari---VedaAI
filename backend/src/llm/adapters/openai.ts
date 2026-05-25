@@ -1,7 +1,7 @@
 import OpenAI from "openai";
-import { buildPrompt } from "../prompt.js";
-import { parsePaper } from "../parser.js";
-import { LlmGenerationError, type GenerationInput, type LlmAdapter, type QuestionPaper } from "../types.js";
+import { buildPrompt, buildVariantPrompt } from "../prompt.js";
+import { parsePaper, parseVariants } from "../parser.js";
+import { LlmGenerationError, type GenerationInput, type LlmAdapter, type GenerationResult } from "../types.js";
 
 /**
  * OpenAI Chat Completions adapter using JSON-mode for reliable parsing.
@@ -16,8 +16,9 @@ export class OpenAiAdapter implements LlmAdapter {
     this.model = model;
   }
 
-  async generatePaper(input: GenerationInput): Promise<QuestionPaper> {
-    const { system, user } = buildPrompt(input);
+  async generatePaper(input: GenerationInput): Promise<GenerationResult> {
+    const useVariants = input.generateVariants ?? false;
+    const { system, user } = useVariants ? buildVariantPrompt(input) : buildPrompt(input);
     try {
       const completion = await this.client.chat.completions.create({
         model: this.model,
@@ -30,7 +31,14 @@ export class OpenAiAdapter implements LlmAdapter {
       });
       const raw = completion.choices[0]?.message?.content ?? "";
       if (!raw) throw new LlmGenerationError("OpenAI returned an empty response");
-      return parsePaper(raw);
+      
+      if (useVariants) {
+        const { setA, setB } = parseVariants(raw);
+        return { paper: setA, variantPaper: setB };
+      }
+
+      const paper = parsePaper(raw);
+      return { paper };
     } catch (err) {
       if (err instanceof LlmGenerationError) throw err;
       throw new LlmGenerationError("OpenAI request failed", err);

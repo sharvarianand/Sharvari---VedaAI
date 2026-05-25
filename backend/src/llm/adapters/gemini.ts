@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { buildPrompt } from "../prompt.js";
-import { parsePaper } from "../parser.js";
-import { LlmGenerationError, type GenerationInput, type LlmAdapter, type QuestionPaper } from "../types.js";
+import { buildPrompt, buildVariantPrompt } from "../prompt.js";
+import { parsePaper, parseVariants } from "../parser.js";
+import { LlmGenerationError, type GenerationInput, type LlmAdapter, type GenerationResult } from "../types.js";
 
 /**
  * Google Gemini adapter.
@@ -19,8 +19,9 @@ export class GeminiAdapter implements LlmAdapter {
     this.modelName = model;
   }
 
-  async generatePaper(input: GenerationInput): Promise<QuestionPaper> {
-    const { system, user } = buildPrompt(input);
+  async generatePaper(input: GenerationInput): Promise<GenerationResult> {
+    const useVariants = input.generateVariants ?? false;
+    const { system, user } = useVariants ? buildVariantPrompt(input) : buildPrompt(input);
     try {
       const model = this.client.getGenerativeModel({
         model: this.modelName,
@@ -33,7 +34,14 @@ export class GeminiAdapter implements LlmAdapter {
       const result = await model.generateContent(user);
       const raw = result.response.text();
       if (!raw) throw new LlmGenerationError("Gemini returned an empty response");
-      return parsePaper(raw);
+      
+      if (useVariants) {
+        const { setA, setB } = parseVariants(raw);
+        return { paper: setA, variantPaper: setB };
+      }
+
+      const paper = parsePaper(raw);
+      return { paper };
     } catch (err) {
       if (err instanceof LlmGenerationError) throw err;
       throw new LlmGenerationError("Gemini request failed", err);

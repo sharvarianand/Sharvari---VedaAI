@@ -1,4 +1,4 @@
-import type { GenerationInput, LlmAdapter, QuestionPaper, QuestionTypeKey } from "../types.js";
+import type { GenerationInput, LlmAdapter, QuestionPaper, QuestionTypeKey, GenerationResult } from "../types.js";
 
 /**
  * Deterministic adapter used as the zero-config default.
@@ -123,6 +123,41 @@ const TEMPLATES: Record<QuestionTypeKey, { heading: string; instruction: (mpq: n
 
 const SECTION_TITLES = ["Section A", "Section B", "Section C", "Section D", "Section E", "Section F", "Section G"];
 
+function hashInput(input: string): number {
+  let hash = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    hash = (hash * 31 + input.charCodeAt(i)) % 2147483647;
+  }
+  return hash;
+}
+
+function rotate<T>(items: T[], offset: number): T[] {
+  if (items.length === 0) return items;
+  const normalized = ((offset % items.length) + items.length) % items.length;
+  return [...items.slice(normalized), ...items.slice(0, normalized)];
+}
+
+function formatMcq(text: string): string {
+  return text.replace(/\s+\(([A-D])\)\s+/g, "\n($1) ");
+}
+
+function difficultyFromInstructions(
+  index: number,
+  total: number,
+  instructions: string
+): "easy" | "moderate" | "hard" {
+  const normalized = instructions.toLowerCase();
+  if (normalized.includes("harder") || normalized.includes("difficult")) {
+    if (index < Math.max(1, Math.floor(total * 0.3))) return "moderate";
+    return "hard";
+  }
+  if (normalized.includes("easier") || normalized.includes("simple")) {
+    if (index < Math.max(1, Math.floor(total * 0.7))) return "easy";
+    return "moderate";
+  }
+  return pickDifficulty(index, total);
+}
+
 /**
  * Pick a difficulty for a given index roughly matching 30/50/20 distribution.
  */
@@ -136,29 +171,67 @@ function pickDifficulty(index: number, total: number): "easy" | "moderate" | "ha
 export class MockLlmAdapter implements LlmAdapter {
   readonly name = "mock";
 
-  async generatePaper(input: GenerationInput): Promise<QuestionPaper> {
+  async generatePaper(input: GenerationInput): Promise<GenerationResult> {
+    const paperA = this.generateSingle(input, "Set A");
+
+    if (input.generateVariants) {
+      const paperB = this.generateSingle(input, "Set B");
+      return { paper: paperA, variantPaper: paperB };
+    }
+
+    return { paper: paperA };
+  }
+
+  private generateSingle(input: GenerationInput, variantLabel?: string): QuestionPaper {
     let qid = 0;
     let totalMarks = 0;
+    const instructionSeed = hashInput(
+      [
+        input.subject,
+        input.className,
+        input.additionalInstructions,
+        input.regenerationInstructions ?? "",
+        variantLabel ?? "",
+        new Date().toISOString(),
+      ].join("|")
+    );
+    const revisionNote = input.regenerationInstructions?.trim();
 
     const sections = input.questionTypes.map((qt, sIdx) => {
       const tpl = TEMPLATES[qt.type];
+      const questionPool = rotate(tpl.q, instructionSeed + sIdx);
       const sectionId = `sec-${sIdx + 1}`;
       const questions = Array.from({ length: qt.count }, (_, i) => {
         qid += 1;
         totalMarks += qt.marksPerQuestion;
+        const rawText = questionPool[i % questionPool.length] ?? tpl.q[i % tpl.q.length];
+        // Introduce small differences for the variant B
+        let text = qt.type === "mcq" ? formatMcq(rawText) : rawText;
+        if (variantLabel === "Set B") {
+          text = text.replace(/SI unit/i, "standard SI unit")
+                     .replace(/SI unit of electric current/i, "SI unit of charge")
+                     .replace(/SI unit/i, "derived unit")
+                     .replace(/water/i, "heavy water")
+                     .replace(/animal cell/i, "plant cell");
+        }
         return {
           id: `q${qid}`,
-          text: tpl.q[i % tpl.q.length],
-          difficulty: pickDifficulty(i, qt.count),
+          text,
+          difficulty: revisionNote
+            ? difficultyFromInstructions(i, qt.count, revisionNote)
+            : pickDifficulty(i, qt.count),
           marks: qt.marksPerQuestion,
         };
       });
 
+      const sectionTitle = SECTION_TITLES[sIdx] ?? `Section ${sIdx + 1}`;
       return {
         id: sectionId,
-        title: SECTION_TITLES[sIdx] ?? `Section ${sIdx + 1}`,
+        title: variantLabel ? `${sectionTitle} (${variantLabel})` : sectionTitle,
         heading: tpl.heading,
-        instruction: tpl.instruction(qt.marksPerQuestion),
+        instruction: revisionNote
+          ? `${tpl.instruction(qt.marksPerQuestion)} Revision focus: ${revisionNote}`
+          : tpl.instruction(qt.marksPerQuestion),
         questions,
       };
     });
@@ -168,12 +241,16 @@ export class MockLlmAdapter implements LlmAdapter {
     const answerKey: { questionId: string; answer: string }[] = [];
     for (const [sIdx, qt] of input.questionTypes.entries()) {
       const tpl = TEMPLATES[qt.type];
+      const answerPool = rotate(tpl.ans, instructionSeed + sIdx);
       const section = sections[sIdx]!;
       for (let i = 0; i < qt.count; i += 1) {
         const q = section.questions[i]!;
         answerKey.push({
           questionId: q.id,
-          answer: tpl.ans[i % tpl.ans.length] ?? "(model answer omitted)",
+          answer:
+            answerPool[i % answerPool.length] ??
+            tpl.ans[i % tpl.ans.length] ??
+            "(model answer omitted)",
         });
         ansIndex += 1;
       }

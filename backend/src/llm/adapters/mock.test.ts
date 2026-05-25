@@ -8,6 +8,8 @@ const baseInput: GenerationInput = {
   subject: "Science",
   className: "5th",
   additionalInstructions: "",
+  language: "english",
+  generateVariants: false,
   questionTypes: [
     { type: "mcq", count: 4, marksPerQuestion: 1 },
     { type: "short", count: 3, marksPerQuestion: 2 },
@@ -17,13 +19,13 @@ const baseInput: GenerationInput = {
 describe("MockLlmAdapter", () => {
   it("produces a paper that satisfies the public schema", async () => {
     const adapter = new MockLlmAdapter();
-    const paper = await adapter.generatePaper(baseInput);
+    const { paper } = await adapter.generatePaper(baseInput);
     expect(() => QuestionPaperSchema.parse(paper)).not.toThrow();
   });
 
   it("respects the requested counts and marks", async () => {
     const adapter = new MockLlmAdapter();
-    const paper = await adapter.generatePaper(baseInput);
+    const { paper } = await adapter.generatePaper(baseInput);
     expect(paper.sections).toHaveLength(2);
     expect(paper.sections[0].questions).toHaveLength(4);
     expect(paper.sections[1].questions).toHaveLength(3);
@@ -33,7 +35,7 @@ describe("MockLlmAdapter", () => {
 
   it("emits one answer per question with matching ids", async () => {
     const adapter = new MockLlmAdapter();
-    const paper = await adapter.generatePaper(baseInput);
+    const { paper } = await adapter.generatePaper(baseInput);
     const allQuestionIds = paper.sections.flatMap((s) => s.questions.map((q) => q.id));
     const answerIds = paper.answerKey.map((a) => a.questionId);
     expect(answerIds.sort()).toEqual(allQuestionIds.sort());
@@ -41,7 +43,7 @@ describe("MockLlmAdapter", () => {
 
   it("gives a sensible time allowance", async () => {
     const adapter = new MockLlmAdapter();
-    const paper = await adapter.generatePaper(baseInput);
+    const { paper } = await adapter.generatePaper(baseInput);
     expect(paper.timeAllowedMinutes).toBeGreaterThanOrEqual(20);
     expect(paper.timeAllowedMinutes).toBeLessThanOrEqual(180);
   });
