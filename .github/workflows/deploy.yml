@@ -23,6 +23,7 @@ jobs:
           mkdir -p deploy
           cp -r backend deploy/backend
           cp Dockerfile deploy/Dockerfile
+          cp hf-readme.md deploy/README.md
           cd deploy
           git init
           git checkout -b main
