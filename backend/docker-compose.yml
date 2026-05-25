@@ -1,0 +1,38 @@
+# Local infrastructure for the VedaAI backend.
+# Spin up Mongo + Redis with `docker compose up -d` and run the API + workers
+# directly via `npm run dev` for fast iteration.
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: vedaai-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - vedaai-mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: vedaai-redis
+    restart: unless-stopped
+    # Bind to host port 6380 to avoid clashing with any local Redis already
+    # listening on 6379. The container itself still uses 6379 internally.
+    ports:
+      - "6380:6379"
+    volumes:
+      - vedaai-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  vedaai-mongo-data:
+  vedaai-redis-data:
