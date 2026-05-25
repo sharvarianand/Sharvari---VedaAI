@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { LlmGenerationError, QuestionPaperSchema, type QuestionPaper } from "./types.js";
 
 /**
@@ -49,3 +50,31 @@ export function parsePaper(raw: string): QuestionPaper {
   }
   return result.data;
 }
+
+export const VariantsResponseSchema = z.object({
+  setA: QuestionPaperSchema,
+  setB: QuestionPaperSchema,
+});
+
+export function parseVariants(raw: string): { setA: QuestionPaper; setB: QuestionPaper } {
+  const json = extractJson(raw);
+  let data: unknown;
+  try {
+    data = JSON.parse(json);
+  } catch (err) {
+    throw new LlmGenerationError(
+      "Model response was not valid JSON",
+      err
+    );
+  }
+
+  const result = VariantsResponseSchema.safeParse(data);
+  if (!result.success) {
+    throw new LlmGenerationError(
+      `Model variant response failed schema validation: ${result.error.message}`,
+      result.error
+    );
+  }
+  return result.data;
+}
+
