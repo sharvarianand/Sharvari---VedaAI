@@ -23,6 +23,7 @@ const MaterialSchema = new Schema(
     size: Number,
     mime: String,
     storedPath: String,
+    extractedText: String,
   },
   { _id: false }
 );
@@ -37,6 +38,8 @@ const DraftSchema = new Schema(
     schoolName: { type: String, default: "Delhi Public School, Sector-4, Bokaro" },
     subject: { type: String, default: "General Studies" },
     className: { type: String, default: "5th" },
+    language: { type: String, enum: ["english", "hindi", "bilingual"], default: "english" },
+    generateVariants: { type: Boolean, default: false },
   },
   { _id: false }
 );
@@ -66,6 +69,8 @@ const AssignmentSchema = new Schema(
     },
     draft: { type: DraftSchema, required: true },
     paper: { type: Schema.Types.Mixed },
+    /** Set B variant paper for A/B exam sets. */
+    variantPaper: { type: Schema.Types.Mixed },
     currentVersion: { type: Number, default: 0 },
     paperVersions: { type: [PaperVersionSchema], default: [] },
     pdfPath: { type: String },

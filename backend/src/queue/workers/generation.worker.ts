@@ -27,40 +27,61 @@ export function startGenerationWorker(): Worker<GenerationJobData> {
       emitToAssignment(assignmentId, {
         type: "assignment.progress",
         id: assignmentId,
-        percent: 20,
-        stage: "prompting",
+        percent: 10,
+        stage: "reading-material",
       });
 
       const input = await AssignmentService.toGenerationInput(doc);
       emitToAssignment(assignmentId, {
         type: "assignment.progress",
         id: assignmentId,
-        percent: 40,
-        stage: "calling-llm",
+        percent: 25,
+        stage: "prompting",
       });
-
-      const paper = await adapter.generatePaper(input);
 
       emitToAssignment(assignmentId, {
         type: "assignment.progress",
         id: assignmentId,
-        percent: 90,
+        percent: 55,
+        stage: "calling-llm",
+      });
+
+      const { paper, variantPaper } = await adapter.generatePaper(input);
+
+      emitToAssignment(assignmentId, {
+        type: "assignment.progress",
+        id: assignmentId,
+        percent: 80,
+        stage: "structuring",
+      });
+
+      emitToAssignment(assignmentId, {
+        type: "assignment.progress",
+        id: assignmentId,
+        percent: 95,
         stage: "saving",
       });
+
+      // For variant generation, the adapter may return a combined response
+      // but in practice the mock/real adapters return a single paper.
+      // The variant paper is handled if the input requests it and we detect
+      // a dual-paper format (future: the adapter could return { setA, setB }).
       const readyDoc = await AssignmentService.markReady(assignmentId, paper, {
         source: "ai",
         note: input.regenerationInstructions,
+        variantPaper,
       });
 
       emitToAssignment(assignmentId, {
         type: "assignment.ready",
         id: assignmentId,
         paper,
+        variantPaper,
         assignment: readyDoc.toObject({ versionKey: false }) as never,
       });
       logger.info({ assignmentId, jobId: job.id }, "generation ready");
     },
-    { connection: bullConnection(), concurrency: 2 }
+    { connection: bullConnection(), concurrency: 4 }
   );
 
   worker.on("failed", async (job, err) => {

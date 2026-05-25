@@ -6,7 +6,7 @@ import { newAssignmentId } from "../utils/ids.js";
 import { generationQueue } from "../queue/queues.js";
 import { emitToAssignment } from "../sockets/index.js";
 import { NotFound } from "../middleware/error.js";
-import type { GenerationInput, QuestionPaper } from "../llm/types.js";
+import type { GenerationInput, QuestionPaper, PaperLanguage } from "../llm/types.js";
 import type { QuestionTypeConfig } from "../llm/types.js";
 import { extractMaterialText } from "./material-service.js";
 
@@ -19,6 +19,8 @@ export interface CreateInput {
   schoolName: string;
   subject: string;
   className: string;
+  language?: PaperLanguage;
+  generateVariants?: boolean;
   material?: { tempPath: string; originalName: string; size: number; mime: string };
 }
 
@@ -88,6 +90,8 @@ export const AssignmentService = {
         schoolName: input.schoolName,
         subject: input.subject,
         className: input.className,
+        language: input.language ?? "english",
+        generateVariants: input.generateVariants ?? false,
       },
     });
 
@@ -133,7 +137,16 @@ export const AssignmentService = {
   /** Convert a stored draft into the input shape expected by the LLM. */
   async toGenerationInput(doc: AssignmentDoc): Promise<GenerationInput> {
     const d = doc.draft;
-    const extractedText = await extractMaterialText(d.material ?? undefined);
+    let extractedText = d.material?.extractedText ?? "";
+
+    if (!extractedText && d.material?.storedPath) {
+      extractedText = await extractMaterialText(d.material);
+      if (extractedText) {
+        d.material.extractedText = extractedText;
+        await doc.save();
+      }
+    }
+
     return {
       material: d.material
         ? {
@@ -150,6 +163,8 @@ export const AssignmentService = {
       schoolName: d.schoolName ?? "Delhi Public School, Sector-4, Bokaro",
       subject: d.subject ?? "General Studies",
       className: d.className ?? "5th",
+      language: (d as any).language ?? "english",
+      generateVariants: (d as any).generateVariants ?? false,
     };
   },
 
@@ -160,7 +175,7 @@ export const AssignmentService = {
   async markReady(
     id: string,
     paper: QuestionPaper,
-    meta?: { note?: string; source?: PaperVersionSource }
+    meta?: { note?: string; source?: PaperVersionSource; variantPaper?: QuestionPaper }
   ): Promise<AssignmentDoc> {
     const doc = await this.get(id);
     const nextVersion = (doc.currentVersion ?? 0) + 1;
@@ -170,6 +185,12 @@ export const AssignmentService = {
     doc.paper = normalizedPaper;
     doc.error = undefined as unknown as string;
     doc.currentVersion = nextVersion;
+
+    // Store variant paper (Set B) if present
+    if (meta?.variantPaper) {
+      (doc as any).variantPaper = normalizePaper(meta.variantPaper);
+    }
+
     if (!doc.paperVersions) {
       doc.paperVersions = [] as any;
     }
@@ -213,6 +234,37 @@ export const AssignmentService = {
         createdAt: new Date(),
       });
     }
+
+    await doc.save();
+    return doc;
+  },
+
+  /**
+   * Restore a specific version's paper as the current active paper.
+   * Creates a new version entry with "restored from vN" note.
+   */
+  async restoreVersion(id: string, targetVersion: number): Promise<AssignmentDoc> {
+    const doc = await this.get(id);
+    const versions = (doc.paperVersions as any) ?? [];
+    const target = versions.find((v: any) => v.version === targetVersion);
+    if (!target) throw NotFound("PaperVersion", String(targetVersion));
+
+    const nextVersion = (doc.currentVersion ?? 0) + 1;
+    const restoredPaper = normalizePaper(target.paper);
+
+    doc.paper = restoredPaper;
+    doc.status = "ready";
+    doc.currentVersion = nextVersion;
+    doc.error = undefined as unknown as string;
+
+    (doc.paperVersions as any).push({
+      version: nextVersion,
+      title: doc.title,
+      source: "manual" as PaperVersionSource,
+      note: `Restored from v${targetVersion}`,
+      paper: restoredPaper,
+      createdAt: new Date(),
+    });
 
     await doc.save();
     return doc;
