@@ -33,7 +33,7 @@ export function exportDocx(
   }
 
   if (mode === "both") {
-    content += `<br/><br/><hr style="margin: 16px 0; border: 1px solid #000;" /><h2 style="text-align: center; font-family: sans-serif;">Answer Key</h2>`;
+    content += `<br clear="all" style="page-break-before:always" /><h2 style="text-align: center; font-family: sans-serif;">Answer Key</h2>`;
   }
 
   if (mode === "answers" || mode === "both") {

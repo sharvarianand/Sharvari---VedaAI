@@ -201,11 +201,12 @@ export class MockLlmAdapter implements LlmAdapter {
       const tpl = TEMPLATES[qt.type];
       const questionPool = rotate(tpl.q, instructionSeed + sIdx);
       const sectionId = `sec-${sIdx + 1}`;
+      
       const questions = Array.from({ length: qt.count }, (_, i) => {
         qid += 1;
         totalMarks += qt.marksPerQuestion;
         const rawText = questionPool[i % questionPool.length] ?? tpl.q[i % tpl.q.length];
-        // Introduce small differences for the variant B
+        
         let text = qt.type === "mcq" ? formatMcq(rawText) : rawText;
         if (variantLabel === "Set B") {
           text = text.replace(/SI unit/i, "standard SI unit")
@@ -214,6 +215,18 @@ export class MockLlmAdapter implements LlmAdapter {
                      .replace(/water/i, "heavy water")
                      .replace(/animal cell/i, "plant cell");
         }
+
+        // Try to inject locked questions if any are present in the instructions
+        if (revisionNote?.includes("You MUST perfectly retain")) {
+          const match = revisionNote.match(/\d+\.\s+([\s\S]*?)(?=\n\d+\.\s+|$)/g);
+          if (match && match[i]) {
+             const lockedText = match[i].replace(/^\d+\.\s+/, "").trim();
+             if (lockedText.length > 5) {
+                text = lockedText;
+             }
+          }
+        }
+
         return {
           id: `q${qid}`,
           text,
@@ -230,7 +243,7 @@ export class MockLlmAdapter implements LlmAdapter {
         title: variantLabel ? `${sectionTitle} (${variantLabel})` : sectionTitle,
         heading: tpl.heading,
         instruction: revisionNote
-          ? `${tpl.instruction(qt.marksPerQuestion)} Revision focus: ${revisionNote}`
+          ? `${tpl.instruction(qt.marksPerQuestion)} Revision focus: ${revisionNote.split("CRITICAL INSTRUCTION")[0].trim()}`
           : tpl.instruction(qt.marksPerQuestion),
         questions,
       };

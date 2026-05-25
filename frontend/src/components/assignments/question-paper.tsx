@@ -115,7 +115,7 @@ export function QuestionPaperView({ paper, lockedQuestionIds, onToggleLock }: Qu
 
       {/* Answer key */}
       {paper.answerKey.length > 0 && (
-        <section className="mt-10">
+        <section className="mt-10 print:break-before-page">
           <h2 className="font-bold">Answer Key:</h2>
           <ol className="mt-3 list-decimal space-y-3 pl-6">
             {paper.answerKey.map((a) => (
