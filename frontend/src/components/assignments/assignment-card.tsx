@@ -54,6 +54,12 @@ export function AssignmentCard({
           >
             {assignment.title}
           </Link>
+          <p className="mt-1 flex items-center gap-1 text-[12px] text-ink-muted">
+            <span className="h-1.5 w-1.5 rounded-full bg-ink-muted" />
+            {assignment.draft.className ? `Class ${assignment.draft.className}` : "Class N/A"}
+            <span className="mx-1 text-ink-subtle">•</span>
+            {assignment.draft.subject || "Subject N/A"}
+          </p>
         </div>
 
         <button

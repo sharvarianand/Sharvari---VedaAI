@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Logo } from "./logo";
+import { useAssignmentsStore } from "@/store/assignments-store";
 
 /* -----------------------------------------------------------------
  * Nav model
@@ -44,6 +45,14 @@ interface SidebarProps {
 
 export function Sidebar({ onNavigate }: SidebarProps = {}) {
   const pathname = usePathname();
+  const assignments = useAssignmentsStore((s) => s.assignments);
+
+  const match = pathname.match(/\/assignments\/([^\/]+)\/output/);
+  const currentId = match ? match[1] : null;
+  const currentAssignment = currentId ? assignments.find((a) => a.id === currentId) : null;
+  const isGenerating = currentAssignment?.status === "queued" || currentAssignment?.status === "generating";
+
+  const showToolkit = pathname.startsWith("/assignments/create") || isGenerating;
 
   return (
     <aside
@@ -59,18 +68,33 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
       </div>
 
       {/* Primary CTA */}
-      <Link
-        href="/assignments/create"
-        onClick={onNavigate}
-        className={cn(
-          "cta-gradient-ring mt-6 flex items-center justify-center gap-2",
-          "rounded-full px-4 py-2.5 text-sm font-semibold text-white",
-          "transition hover:brightness-110"
-        )}
-      >
-        <Plus className="h-4 w-4" strokeWidth={2.5} />
-        Create Assignment
-      </Link>
+      {showToolkit ? (
+        <Link
+          href="/ai-toolkit"
+          onClick={onNavigate}
+          className={cn(
+            "cta-gradient-ring mt-6 flex items-center justify-center gap-2",
+            "rounded-full px-4 py-2.5 text-sm font-semibold text-white",
+            "transition hover:brightness-110"
+          )}
+        >
+          <Book className="h-4 w-4" strokeWidth={2.5} />
+          AI Teacher's Toolkit
+        </Link>
+      ) : (
+        <Link
+          href="/assignments/create"
+          onClick={onNavigate}
+          className={cn(
+            "cta-gradient-ring mt-6 flex items-center justify-center gap-2",
+            "rounded-full px-4 py-2.5 text-sm font-semibold text-white",
+            "transition hover:brightness-110"
+          )}
+        >
+          <Plus className="h-4 w-4" strokeWidth={2.5} />
+          Create Assignment
+        </Link>
+      )}
 
       {/* Nav */}
       <nav className="mt-6 flex flex-col gap-1">

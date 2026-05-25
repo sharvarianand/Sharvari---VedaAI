@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ChevronRight, MoreHorizontal, Plus, Users, TrendingUp } from "lucide-react";
+import { ChevronRight, Plus, TrendingUp } from "lucide-react";
 import { Topbar } from "@/components/layout/topbar";
+import { useAssignmentsStore } from "@/store/assignments-store";
+import { AssignmentCard } from "@/components/assignments/assignment-card";
+import { api } from "@/lib/api";
 
 /* -----------------------------------------------------------------
  * Gauge SVG — semi-circle progress indicator
@@ -51,37 +54,26 @@ function GaugeChart({ value, max }: { value: number; max: number }) {
 }
 
 /* -----------------------------------------------------------------
- * Demo assignment data
- * ---------------------------------------------------------------*/
-const RECENT = [
-  {
-    id: "a-1",
-    title: "Assignment on Motion",
-    status: "Active" as const,
-    group: "Class 10-A",
-    subject: "Science",
-    submitted: 50,
-    total: 50,
-    assignedOn: "20-06-2025",
-    due: "21-06-2025",
-  },
-  {
-    id: "a-2",
-    title: "Quiz on Electricity",
-    status: "Closed" as const,
-    group: "Class 10-A",
-    subject: "Science",
-    submitted: 47,
-    total: 50,
-    assignedOn: "20-06-2025",
-    due: "21-06-2025",
-  },
-];
-
-/* -----------------------------------------------------------------
  * Page
  * ---------------------------------------------------------------*/
 export default function HomePage() {
+  const assignments = useAssignmentsStore((s) => s.assignments);
+  const removeAssignment = useAssignmentsStore((s) => s.removeAssignment);
+  
+  // Get top 2 recent active assignments
+  const recentAssignments = [...assignments]
+    .sort((a, b) => new Date(b.assignedOn).getTime() - new Date(a.assignedOn).getTime())
+    .slice(0, 2);
+
+  const handleDelete = async (id: string) => {
+    try {
+      await api.deleteAssignment(id);
+      removeAssignment(id);
+    } catch {
+      removeAssignment(id);
+    }
+  };
+
   return (
     <>
       <Topbar
@@ -183,9 +175,13 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {RECENT.map((a) => (
-              <AssignmentCard key={a.id} {...a} />
-            ))}
+            {recentAssignments.length === 0 ? (
+              <p className="text-[13px] text-ink-muted col-span-2 py-4">No recent assignments found. Create your first one!</p>
+            ) : (
+              recentAssignments.map((a) => (
+                <AssignmentCard key={a.id} assignment={a} onDelete={handleDelete} />
+              ))
+            )}
           </div>
         </div>
 
@@ -232,90 +228,5 @@ export default function HomePage() {
         </div>
       </section>
     </>
-  );
-}
-
-/* -----------------------------------------------------------------
- * Assignment card
- * ---------------------------------------------------------------*/
-function AssignmentCard({
-  title,
-  status,
-  group,
-  subject,
-  submitted,
-  total,
-  assignedOn,
-  due,
-}: {
-  title: string;
-  status: "Active" | "Closed";
-  group: string;
-  subject: string;
-  submitted: number;
-  total: number;
-  assignedOn: string;
-  due: string;
-}) {
-  const pct = Math.round((submitted / total) * 100);
-  return (
-    <div className="card-elevated rounded-[20px] bg-surface p-5">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <h3 className="text-[14px] font-bold text-ink">{title}</h3>
-          <span
-            className={
-              status === "Active"
-                ? "rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-700"
-                : "rounded-full bg-surface-muted px-2 py-0.5 text-[11px] font-medium text-ink-muted"
-            }
-          >
-            {status}
-          </span>
-        </div>
-        <button
-          type="button"
-          aria-label="More options"
-          className="grid h-7 w-7 shrink-0 place-items-center rounded-full hover:bg-surface-muted"
-        >
-          <MoreHorizontal className="h-4 w-4 text-ink-muted" />
-        </button>
-      </div>
-
-      <p className="mt-1 flex items-center gap-1 text-[12px] text-ink-muted">
-        <span className="h-1.5 w-1.5 rounded-full bg-ink-muted" />
-        {group}
-        <span className="mx-1 text-ink-subtle">•</span>
-        {subject}
-      </p>
-
-      <div className="mt-3 flex items-end justify-between">
-        <div>
-          <p className="text-[18px] font-bold leading-none text-ink">
-            {submitted}/{total}{" "}
-            <span className="text-[13px] font-normal text-ink-muted">
-              Submitted
-            </span>
-          </p>
-        </div>
-        <div className="text-right text-[12px] text-ink-muted">
-          <p>
-            <span className="font-medium text-ink">Assigned on :</span>{" "}
-            {assignedOn}
-          </p>
-          <p>
-            <span className="font-medium text-ink">Due :</span> {due}
-          </p>
-        </div>
-      </div>
-
-      {/* Progress bar */}
-      <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-surface-muted">
-        <div
-          className="h-full rounded-full bg-brand transition-all"
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-    </div>
   );
 }

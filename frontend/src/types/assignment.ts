@@ -6,6 +6,8 @@
 
 export type Difficulty = "easy" | "moderate" | "hard";
 
+export type PaperLanguage = "english" | "hindi" | "bilingual";
+
 export type QuestionTypeKey =
   | "mcq"
   | "short"
@@ -39,6 +41,10 @@ export interface AssignmentDraft {
   schoolName?: string;
   subject?: string;
   className?: string;
+  /** Language for paper generation. */
+  language?: PaperLanguage;
+  /** Generate A/B exam variants. */
+  generateVariants?: boolean;
 }
 
 export type PaperVersionSource = "ai" | "manual";
@@ -87,6 +93,8 @@ export interface Assignment {
   status: AssignmentStatus;
   draft: AssignmentDraft;
   paper?: QuestionPaper;
+  /** Set B variant paper for A/B exam variants. */
+  variantPaper?: QuestionPaper;
   currentVersion: number;
   paperVersions: PaperVersion[];
   error?: string;

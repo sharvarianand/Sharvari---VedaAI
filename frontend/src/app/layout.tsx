@@ -19,6 +19,8 @@ export const metadata: Metadata = {
     "Create assignments, generate AI-powered question papers, and manage grading — built for teachers.",
 };
 
+import { Toaster } from "react-hot-toast";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -26,7 +28,26 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${outfit.variable} h-full antialiased`}>
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        {children}
+        <Toaster 
+          position="bottom-right" 
+          toastOptions={{
+            style: {
+              background: '#1a1a1a',
+              color: '#fff',
+              fontSize: '14px',
+              borderRadius: '16px',
+            },
+            success: {
+              iconTheme: {
+                primary: '#22c55e',
+                secondary: '#1a1a1a',
+              },
+            },
+          }} 
+        />
+      </body>
     </html>
   );
 }

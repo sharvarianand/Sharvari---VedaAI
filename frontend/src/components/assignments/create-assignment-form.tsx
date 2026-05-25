@@ -21,10 +21,13 @@ import { api, ApiError } from "@/lib/api";
 import type {
   QuestionTypeConfig,
   QuestionTypeKey,
+  PaperLanguage,
 } from "@/types/assignment";
 
 interface FieldErrors {
   title?: string;
+  subject?: string;
+  className?: string;
   dueDate?: string;
   questionTypes?: string;
   submit?: string;
@@ -32,12 +35,20 @@ interface FieldErrors {
 
 function validate(draft: {
   title: string;
+  subject?: string;
+  className?: string;
   dueDate: string;
   questionTypes: QuestionTypeConfig[];
 }): FieldErrors {
   const errors: FieldErrors = {};
   if (!draft.title.trim()) {
     errors.title = "Please enter a question paper title.";
+  }
+  if (!draft.subject?.trim()) {
+    errors.subject = "Please enter the subject.";
+  }
+  if (!draft.className?.trim()) {
+    errors.className = "Please enter the class.";
   }
   if (!draft.dueDate) {
     errors.dueDate = "Please pick a due date.";
@@ -119,6 +130,8 @@ export function CreateAssignmentForm() {
   const onSubmit = async () => {
     const e = validate({
       title: draft.title ?? "",
+      subject: draft.subject,
+      className: draft.className,
       dueDate: draft.dueDate,
       questionTypes: draft.questionTypes,
     });
@@ -187,6 +200,73 @@ export function CreateAssignmentForm() {
           {errors.title && (
             <p className="mt-1 text-[12px] text-danger">{errors.title}</p>
           )}
+        </div>
+
+        <div className="mt-6">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="text-[14px] font-semibold text-ink">Subject</label>
+              <div className="card-elevated mt-2 flex items-center gap-2 rounded-full bg-surface px-4">
+                <input
+                  type="text"
+                  value={draft.subject ?? ""}
+                  onChange={(ev) => setDraft({ subject: ev.target.value })}
+                  placeholder="e.g. Science"
+                  className="h-11 w-full bg-transparent text-[14px] text-ink placeholder:text-ink-subtle focus:outline-none"
+                />
+              </div>
+              {errors.subject && (
+                <p className="mt-1 text-[12px] text-danger">{errors.subject}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="text-[14px] font-semibold text-ink">Class</label>
+              <div className="card-elevated mt-2 flex items-center gap-2 rounded-full bg-surface px-4">
+                <input
+                  type="text"
+                  value={draft.className ?? ""}
+                  onChange={(ev) => setDraft({ className: ev.target.value })}
+                  placeholder="e.g. 8th"
+                  className="h-11 w-full bg-transparent text-[14px] text-ink placeholder:text-ink-subtle focus:outline-none"
+                />
+              </div>
+              {errors.className && (
+                <p className="mt-1 text-[12px] text-danger">{errors.className}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="text-[14px] font-semibold text-ink">Language</label>
+              <div className="card-elevated mt-2 flex items-center gap-2 rounded-full bg-surface px-4">
+                <select
+                  value={draft.language ?? "english"}
+                  onChange={(ev) => setDraft({ language: ev.target.value as PaperLanguage })}
+                  className="h-11 w-full bg-transparent text-[14px] text-ink focus:outline-none cursor-pointer"
+                >
+                  <option value="english">English</option>
+                  <option value="hindi">Hindi</option>
+                  <option value="bilingual">Bilingual (English & Hindi)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 flex items-center justify-between card-elevated rounded-2xl bg-surface px-5 py-4 border border-line">
+          <div>
+            <label className="text-[14px] font-semibold text-ink">Generate Set A/B Variants</label>
+            <p className="text-[12px] text-ink-muted mt-0.5">Create two distinct exam variants with equivalent difficulty</p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input 
+              type="checkbox" 
+              className="sr-only peer" 
+              checked={draft.generateVariants ?? false}
+              onChange={(e) => setDraft({ generateVariants: e.target.checked })}
+            />
+            <div className="w-11 h-6 bg-line-strong rounded-full peer peer-focus:ring-4 peer-focus:ring-brand/20 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand"></div>
+          </label>
         </div>
 
         <div className="mt-6">

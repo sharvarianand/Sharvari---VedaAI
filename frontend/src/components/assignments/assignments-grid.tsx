@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ChevronDown, Filter, Plus, Search } from "lucide-react";
+import { Filter, Plus, Search } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { Assignment } from "@/types/assignment";
 import { useAssignmentsStore } from "@/store/assignments-store";

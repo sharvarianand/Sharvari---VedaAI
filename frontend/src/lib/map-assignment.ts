@@ -25,8 +25,12 @@ export interface ApiAssignment {
     schoolName?: string;
     subject?: string;
     className?: string;
+    language?: "english" | "hindi" | "bilingual";
+    generateVariants?: boolean;
   };
   paper?: QuestionPaper;
+  /** Set B variant paper for A/B exam sets. */
+  variantPaper?: QuestionPaper;
   error?: string | null;
   createdAt?: string;
   updatedAt?: string;
@@ -62,6 +66,8 @@ function mapDraft(api: ApiAssignment): AssignmentDraft {
     schoolName: api.draft.schoolName,
     subject: api.draft.subject,
     className: api.draft.className,
+    language: api.draft.language ?? "english",
+    generateVariants: api.draft.generateVariants ?? false,
   };
 }
 
@@ -88,6 +94,7 @@ export function mapApiAssignment(doc: ApiAssignment): Assignment {
     status: doc.status,
     draft: mapDraft(doc),
     paper: doc.paper,
+    variantPaper: doc.variantPaper,
     currentVersion: doc.currentVersion ?? 0,
     paperVersions: (doc.paperVersions ?? []).map(mapVersion),
     error: doc.error ?? undefined,

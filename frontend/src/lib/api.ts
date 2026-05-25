@@ -93,6 +93,8 @@ export const api = {
     );
     form.append("subject", payload.subject ?? draft.subject ?? "General Studies");
     form.append("className", payload.className ?? draft.className ?? "5th");
+    form.append("language", draft.language ?? "english");
+    form.append("generateVariants", String(draft.generateVariants ?? false));
     if (file) form.append("file", file);
 
     const doc = await request<ApiAssignment>("/api/assignments", {
@@ -123,6 +125,15 @@ export const api = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ instructions }),
+    });
+    return mapApiAssignment(doc);
+  },
+
+  async restoreVersion(id: string, version: number): Promise<Assignment> {
+    const doc = await request<ApiAssignment>(`/api/assignments/${id}/restore/${version}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
     });
     return mapApiAssignment(doc);
   },

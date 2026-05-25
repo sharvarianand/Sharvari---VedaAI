@@ -50,7 +50,9 @@ export function useAssignmentSocket(
   const setGenerationProgress = useAssignmentsStore((s) => s.setGenerationProgress);
   const socketRef = useRef<Socket | null>(null);
   const handlersRef = useRef(handlers);
-  handlersRef.current = handlers;
+  useEffect(() => {
+    handlersRef.current = handlers;
+  }, [handlers]);
 
   useEffect(() => {
     if (!assignmentId) return;
@@ -122,7 +124,7 @@ export function useAssignmentSocket(
       handlersRef.current?.onPdfFailed?.(evt.error);
     });
 
-    socket.on("pdf.queued", (_evt: PdfQueued) => {
+    socket.on("pdf.queued", () => {
       /* UI can show a spinner via download handler */
     });
 
