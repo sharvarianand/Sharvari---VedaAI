@@ -1,0 +1,108 @@
+import type { GenerationInput } from "./types.js";
+
+/**
+ * Human-readable label for a question-type key, used inside the prompt
+ * so the model gets a clear instruction rather than a slug.
+ */
+const TYPE_LABEL: Record<string, string> = {
+  mcq: "Multiple Choice Questions (each with 4 options labelled A-D)",
+  short: "Short Answer Questions (1-3 sentences)",
+  long: "Long Answer Questions (a full paragraph)",
+  diagram: "Diagram / Graph-Based Questions (describe the diagram in words)",
+  numerical: "Numerical Problems (with clear numeric setup)",
+  "true-false": "True / False statements",
+  "fill-blanks": "Fill in the Blanks (use ____ for the blank)",
+};
+
+/**
+ * Build the system + user prompt pair for a generation request.
+ *
+ * The contract demanded from the model is intentionally rigid: a single JSON
+ * object that conforms to the published schema. We restate the difficulty
+ * distribution in plain English to avoid a uniform-difficulty bias and
+ * include a worked example structure as a few-shot anchor.
+ */
+export function buildPrompt(input: GenerationInput): {
+  system: string;
+  user: string;
+} {
+  const totalQuestions = input.questionTypes.reduce((s, q) => s + q.count, 0);
+  const totalMarks = input.questionTypes.reduce(
+    (s, q) => s + q.count * q.marksPerQuestion,
+    0
+  );
+
+  const typeLines = input.questionTypes
+    .map(
+      (q) =>
+        `- ${q.count} × ${TYPE_LABEL[q.type] ?? q.type} (${q.marksPerQuestion} mark${
+          q.marksPerQuestion === 1 ? "" : "s"
+        } each)`
+    )
+    .join("\n");
+
+  const materialLine = input.material
+    ? `A reference document was uploaded: "${input.material.name}" (${input.material.mime}). Treat its filename and any title hints as the chapter focus.`
+    : `No reference material was uploaded — pick a representative chapter for the subject.`;
+  const materialExcerptLine = input.material?.extractedText?.trim()
+    ? `Use this extracted study material excerpt as grounding context:\n${input.material.extractedText.trim()}`
+    : `No material excerpt could be extracted, so rely on the requested subject, class, and teacher instructions.`;
+  const regenerationLine = input.regenerationInstructions?.trim()
+    ? `Revision instructions for this regeneration:\n${input.regenerationInstructions.trim()}`
+    : `No revision-specific instructions were provided.`;
+
+  const system = [
+    "You are an experienced school teacher generating a fair, exam-quality question paper.",
+    "Output MUST be a single JSON object that strictly conforms to the schema described below.",
+    "Do not include markdown, prose, or commentary outside the JSON.",
+    "Distribute difficulty roughly as 30% easy, 50% moderate, 20% hard.",
+    "Group questions into at least one section (Section A, B, ...). Use multiple sections when more than one question type is requested.",
+    "Each question must have a unique id (q1, q2, q3, ...) and the answerKey must reference those ids.",
+  ].join(" ");
+
+  const user = `Generate a question paper with the following parameters.
+
+Subject: ${input.subject}
+Class: ${input.className}
+School: ${input.schoolName}
+Due date: ${input.dueDate}
+Total questions: ${totalQuestions}
+Total marks: ${totalMarks}
+
+Question type breakdown:
+${typeLines}
+
+${materialLine}
+${materialExcerptLine}
+
+${regenerationLine}
+
+Additional instructions from the teacher:
+${input.additionalInstructions || "(none)"}
+
+Return JSON of the shape:
+{
+  "schoolName": string,
+  "subject": string,
+  "className": string,
+  "timeAllowedMinutes": number,
+  "maximumMarks": number,
+  "sections": [
+    {
+      "id": string,
+      "title": string,            // e.g. "Section A"
+      "heading": string,          // e.g. "Short Answer Questions"
+      "instruction": string,      // e.g. "Attempt all questions. Each question carries 2 marks"
+      "questions": [
+        { "id": string, "text": string, "difficulty": "easy"|"moderate"|"hard", "marks": number }
+      ]
+    }
+  ],
+  "answerKey": [ { "questionId": string, "answer": string } ]
+}
+
+Make sure maximumMarks equals the sum of marks across all questions and that
+every question id appears exactly once in the answerKey.`;
+
+  return { system, user };
+}
