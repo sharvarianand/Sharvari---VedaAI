@@ -20,4 +20,14 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         # Replace 'sharvarianand' and 'vedaai-backend' with your exact Hugging Face username and Space name
         run: |
+          mkdir -p deploy
+          cp -r backend deploy/backend
+          cp Dockerfile deploy/Dockerfile
+          cd deploy
+          git init
+          git checkout -b main
+          git config user.name "Deployment-Bot"
+          git config user.email "bot@vedaai.local"
+          git add .
+          git commit -m "Automated deployment"
           git push --force https://user:$HF_TOKEN@huggingface.co/spaces/sharvarianand/vedaai-backend main
