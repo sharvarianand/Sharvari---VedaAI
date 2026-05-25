@@ -4,7 +4,9 @@ import { promisify } from "node:util";
 import { logger } from "../config/logger.js";
 
 const execFileAsync = promisify(execFile);
-const MAX_SNIPPET_CHARS = 4000;
+// Keep grounding context short enough that it helps the model instead of
+// bloating prompt latency for every generation call.
+const MAX_SNIPPET_CHARS = 1600;
 
 function normalizeWhitespace(input: string): string {
   return input.replace(/\s+/g, " ").trim();

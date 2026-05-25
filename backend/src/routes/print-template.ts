@@ -8,9 +8,13 @@ interface AssignmentLite {
 
 const DIFFICULTY_LABEL: Record<string, string> = {
   easy: "Easy",
-  moderate: "Moderate",
-  hard: "Challenging",
+  moderate: "Medium",
+  hard: "Hard",
 };
+
+function formatQuestionText(text: string): string {
+  return text.replace(/\s+\(([A-D])\)\s+/g, "<br/>($1) ");
+}
 
 /** Cheap, dependency-free HTML escape for user-controlled strings. */
 function esc(s: string): string {
@@ -32,6 +36,15 @@ function esc(s: string): string {
 export function renderPaperHtml(doc: AssignmentLite): string {
   const paper = doc.paper;
   if (!paper) return "<!doctype html><title>Not ready</title>";
+  const difficultyCounts = paper.sections
+    .flatMap((section) => section.questions)
+    .reduce(
+      (acc, question) => {
+        acc[question.difficulty] = (acc[question.difficulty] ?? 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
 
   const sectionsHtml = paper.sections
     .map(
@@ -48,7 +61,7 @@ export function renderPaperHtml(doc: AssignmentLite): string {
                     <span class="diff diff-${q.difficulty}">[${esc(
                       DIFFICULTY_LABEL[q.difficulty] ?? q.difficulty
                     )}]</span>
-                    ${esc(q.text)}
+                    ${formatQuestionText(esc(q.text))}
                     <span class="marks">[${q.marks} Marks]</span>
                   </li>`
               )
@@ -92,6 +105,10 @@ export function renderPaperHtml(doc: AssignmentLite): string {
       display: flex; justify-content: space-between;
       font-weight: 500; margin-top: 8pt;
     }
+    .difficulty-row {
+      display: flex; flex-wrap: wrap; gap: 8pt;
+      align-items: center; margin-top: 10pt; font-size: 10.5pt; color: #666;
+    }
     .compulsory { font-weight: 600; margin-top: 14pt; }
     .student-info p { margin: 4pt 0; }
     .student-info .blank {
@@ -105,6 +122,13 @@ export function renderPaperHtml(doc: AssignmentLite): string {
     ol.questions li { margin-bottom: 8pt; }
     .marks { white-space: nowrap; }
     .diff { font-weight: 700; margin-right: 4pt; }
+    .diff-badge {
+      display: inline-block;
+      padding: 2pt 8pt;
+      border-radius: 999px;
+      border: 1px solid currentColor;
+      font-weight: 700;
+    }
     .diff-easy { color: #047857; }
     .diff-moderate { color: #b45309; }
     .diff-hard { color: #be123c; }
@@ -127,6 +151,15 @@ export function renderPaperHtml(doc: AssignmentLite): string {
   <div class="meta">
     <span>Time Allowed: ${paper.timeAllowedMinutes} minutes</span>
     <span>Maximum Marks: ${paper.maximumMarks}</span>
+  </div>
+
+  <div class="difficulty-row">
+    <span class="diff-badge diff-easy">Easy</span>
+    <span>${difficultyCounts.easy ?? 0} questions</span>
+    <span class="diff-badge diff-moderate">Medium</span>
+    <span>${difficultyCounts.moderate ?? 0} questions</span>
+    <span class="diff-badge diff-hard">Hard</span>
+    <span>${difficultyCounts.hard ?? 0} questions</span>
   </div>
 
   <p class="compulsory">All questions are compulsory unless stated otherwise.</p>

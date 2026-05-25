@@ -14,7 +14,9 @@ const schema = z.object({
     .default("development"),
   PORT: z.coerce.number().int().positive().default(4000),
   PUBLIC_BASE_URL: z.string().url().default("http://localhost:4000"),
-  CORS_ORIGIN: z.string().default("http://localhost:3000"),
+  CORS_ORIGIN: z.string()
+    .default("http://localhost:3000,http://127.0.0.1:3000")
+    .transform((val) => val.split(",").map((s) => s.trim())),
 
   MONGO_URI: z.string().default("mongodb://localhost:27017/vedaai"),
   REDIS_URL: z.string().default("redis://localhost:6380"),

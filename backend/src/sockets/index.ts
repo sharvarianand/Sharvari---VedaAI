@@ -10,6 +10,7 @@ interface SocketAssignment {
   status: string;
   draft: unknown;
   paper?: QuestionPaper;
+  variantPaper?: QuestionPaper;
   error?: string | null;
   createdAt?: string;
   updatedAt?: string;
@@ -24,7 +25,7 @@ interface SocketAssignment {
 export type ServerEvent =
   | { type: "assignment.queued"; id: string; jobId: string }
   | { type: "assignment.progress"; id: string; percent: number; stage: string }
-  | { type: "assignment.ready"; id: string; paper: QuestionPaper; assignment: SocketAssignment }
+  | { type: "assignment.ready"; id: string; paper: QuestionPaper; variantPaper?: QuestionPaper; assignment: SocketAssignment }
   | { type: "assignment.updated"; assignment: SocketAssignment }
   | { type: "assignment.failed"; id: string; error: string }
   | { type: "pdf.queued"; id: string }

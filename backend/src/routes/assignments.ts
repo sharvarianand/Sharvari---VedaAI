@@ -28,6 +28,12 @@ const createBodySchema = z.object({
   schoolName: z.string().trim().min(1).default("Delhi Public School, Sector-4, Bokaro"),
   subject: z.string().trim().min(1).default("General Studies"),
   className: z.string().trim().min(1).default("5th"),
+  language: z.enum(["english", "hindi", "bilingual"]).default("english"),
+  generateVariants: z
+    .union([z.string(), z.boolean()])
+    .transform((v) => (typeof v === "string" ? v === "true" : v))
+    .pipe(z.boolean())
+    .default(false),
 });
 
 const idParamSchema = z.object({ id: z.string().min(8).max(64) });
@@ -83,6 +89,8 @@ assignmentsRouter.post(
       schoolName: body.schoolName,
       subject: body.subject,
       className: body.className,
+      language: body.language,
+      generateVariants: body.generateVariants,
       material: req.file
         ? {
             tempPath: req.file.path,
@@ -125,6 +133,24 @@ assignmentsRouter.post(
     const body = regenerateBodySchema.parse(req.body ?? {});
     const doc = await AssignmentService.regenerate(id, body.instructions);
     res.json(doc.toObject({ versionKey: false }));
+  })
+);
+
+/**
+ * Restore a previous version's paper as the current active paper.
+ */
+assignmentsRouter.post(
+  "/:id/restore/:version",
+  asyncHandler(async (req, res) => {
+    const { id } = idParamSchema.parse(req.params);
+    const version = Number((req.params as { version: string }).version);
+    if (!Number.isInteger(version) || version < 1) {
+      throw BadRequest("Invalid version number");
+    }
+    const doc = await AssignmentService.restoreVersion(id, version);
+    const serialized = doc.toObject({ versionKey: false });
+    emitToAssignment(id, { type: "assignment.updated", assignment: serialized as never });
+    res.json(serialized);
   })
 );
 
