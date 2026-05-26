@@ -52,7 +52,7 @@ export function GenerationProgressView({
   return (
     <div
       className={cn(
-        "card-elevated flex flex-col items-center justify-center rounded-3xl bg-surface px-8 py-16 text-center",
+        "card-elevated flex flex-1 flex-col items-center justify-center rounded-3xl bg-surface px-8 py-16 text-center min-h-[50vh]",
         className
       )}
     >

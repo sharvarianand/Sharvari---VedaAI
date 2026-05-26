@@ -20,6 +20,7 @@ export const metadata: Metadata = {
 };
 
 import { Toaster } from "react-hot-toast";
+import { Analytics } from "@vercel/analytics/react";
 
 export default function RootLayout({
   children,
@@ -30,6 +31,7 @@ export default function RootLayout({
     <html lang="en" className={`${outfit.variable} h-full antialiased`}>
       <body className="min-h-full">
         {children}
+        <Analytics />
         <Toaster 
           position="bottom-right" 
           toastOptions={{
