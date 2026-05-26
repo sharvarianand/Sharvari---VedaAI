@@ -43,9 +43,16 @@ function validate(draft: {
   const errors: FieldErrors = {};
   if (!draft.title.trim()) {
     errors.title = "Please enter a question paper title.";
+  } else if (draft.title.trim().length < 5) {
+    errors.title = "Title must be at least 5 characters.";
   }
+  
   if (!draft.subject?.trim()) {
     errors.subject = "Please enter the subject.";
+  } else if (draft.subject.trim().length < 3) {
+    errors.subject = "Subject must be at least 3 characters.";
+  } else if (/[^a-zA-Z0-9\s.-]/.test(draft.subject.trim())) {
+    errors.subject = "Subject contains invalid characters.";
   }
   if (!draft.className?.trim()) {
     errors.className = "Please enter the class.";
@@ -223,13 +230,16 @@ export function CreateAssignmentForm() {
             <div>
               <label className="text-[14px] font-semibold text-ink">Class</label>
               <div className="card-elevated mt-2 flex items-center gap-2 rounded-full bg-surface px-4">
-                <input
-                  type="text"
+                <select
                   value={draft.className ?? ""}
                   onChange={(ev) => setDraft({ className: ev.target.value })}
-                  placeholder="e.g. 8th"
-                  className="h-11 w-full bg-transparent text-[14px] text-ink placeholder:text-ink-subtle focus:outline-none"
-                />
+                  className="h-11 w-full bg-transparent text-[14px] text-ink focus:outline-none cursor-pointer"
+                >
+                  <option value="" disabled>Select a class</option>
+                  {["Nursery", "LKG", "UKG", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th", "11th", "12th"].map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
               </div>
               {errors.className && (
                 <p className="mt-1 text-[12px] text-danger">{errors.className}</p>
