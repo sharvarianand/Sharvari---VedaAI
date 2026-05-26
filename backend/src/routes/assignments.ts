@@ -48,6 +48,7 @@ const updateBodySchema = z
   });
 const regenerateBodySchema = z.object({
   instructions: z.string().trim().max(1200).optional(),
+  lockedQuestionIds: z.array(z.string()).optional(),
 });
 
 /* -----------------------------------------------------------------
@@ -131,7 +132,7 @@ assignmentsRouter.post(
   asyncHandler(async (req, res) => {
     const { id } = idParamSchema.parse(req.params);
     const body = regenerateBodySchema.parse(req.body ?? {});
-    const doc = await AssignmentService.regenerate(id, body.instructions);
+    const doc = await AssignmentService.regenerate(id, body.instructions, body.lockedQuestionIds);
     res.json(doc.toObject({ versionKey: false }));
   })
 );

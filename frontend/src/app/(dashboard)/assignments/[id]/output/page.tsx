@@ -179,7 +179,8 @@ export default function AssignmentOutputPage({ params }: PageProps) {
 
       const doc = await api.regenerateAssignment(
         id,
-        finalInstructions || undefined
+        finalInstructions || undefined,
+        Array.from(lockedQuestionIds)
       );
       upsertAssignment(doc);
       setShowRegeneratePanel(false);

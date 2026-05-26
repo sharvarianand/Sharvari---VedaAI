@@ -117,7 +117,7 @@ export const AssignmentService = {
     if (res.deletedCount === 0) throw NotFound("Assignment", id);
   },
 
-  async regenerate(id: string, regenerationInstructions?: string): Promise<AssignmentDoc> {
+  async regenerate(id: string, regenerationInstructions?: string, lockedQuestionIds?: string[]): Promise<AssignmentDoc> {
     const doc = await this.get(id);
     doc.status = "queued";
     doc.error = undefined as unknown as string;
@@ -125,7 +125,7 @@ export const AssignmentService = {
     await doc.save();
     const job = await generationQueue.add(
       "generate",
-      { assignmentId: id },
+      { assignmentId: id, lockedQuestionIds },
       { jobId: `gen-${id}-${Date.now()}` }
     );
     doc.jobId = job.id ?? undefined;

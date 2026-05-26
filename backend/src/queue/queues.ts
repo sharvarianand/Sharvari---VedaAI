@@ -36,6 +36,7 @@ export const QUEUES = {
 
 export interface GenerationJobData {
   assignmentId: string;
+  lockedQuestionIds?: string[];
 }
 
 export interface PdfJobData {

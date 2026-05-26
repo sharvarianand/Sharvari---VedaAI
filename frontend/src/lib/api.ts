@@ -120,11 +120,11 @@ export const api = {
     return mapApiAssignment(doc);
   },
 
-  async regenerateAssignment(id: string, instructions?: string): Promise<Assignment> {
+  async regenerateAssignment(id: string, instructions?: string, lockedQuestionIds?: string[]): Promise<Assignment> {
     const doc = await request<ApiAssignment>(`/api/assignments/${id}/regenerate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ instructions }),
+      body: JSON.stringify({ instructions, lockedQuestionIds }),
     });
     return mapApiAssignment(doc);
   },

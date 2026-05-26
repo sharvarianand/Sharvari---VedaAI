@@ -46,7 +46,54 @@ export function startGenerationWorker(): Worker<GenerationJobData> {
         stage: "calling-llm",
       });
 
-      const { paper, variantPaper } = await adapter.generatePaper(input);
+      let { paper, variantPaper } = await adapter.generatePaper(input);
+
+      // Programmatic Question Locking
+      // If the LLM didn't perfectly reproduce the locked questions (or changed their IDs),
+      // we forcefully inject them back into the new paper.
+      const { lockedQuestionIds } = job.data;
+      if (lockedQuestionIds && lockedQuestionIds.length > 0 && doc.paper) {
+        const lockedQs: any[] = [];
+        const lockedAns = new Map<string, string>();
+        
+        // Extract locked from old paper
+        for (const sec of doc.paper.sections) {
+          for (const q of sec.questions) {
+            if (lockedQuestionIds.includes(q.id)) {
+              lockedQs.push({ ...q });
+              const ans = doc.paper.answerKey.find((a: any) => a.questionId === q.id);
+              if (ans) lockedAns.set(q.id, ans.answer);
+            }
+          }
+        }
+        
+        // Inject into new paper sequentially
+        let lockedIdx = 0;
+        for (const sec of paper.sections) {
+          for (let i = 0; i < sec.questions.length; i++) {
+            if (lockedIdx < lockedQs.length) {
+              const oldId = sec.questions[i].id;
+              const lockedQ = lockedQs[lockedIdx];
+              sec.questions[i] = lockedQ;
+              
+              // update answer key
+              const aIdx = paper.answerKey.findIndex((a: any) => a.questionId === oldId);
+              if (aIdx >= 0) {
+                paper.answerKey[aIdx] = {
+                  questionId: lockedQ.id,
+                  answer: lockedAns.get(lockedQ.id) || "Answer missing",
+                };
+              } else {
+                paper.answerKey.push({
+                  questionId: lockedQ.id,
+                  answer: lockedAns.get(lockedQ.id) || "Answer missing",
+                });
+              }
+              lockedIdx++;
+            }
+          }
+        }
+      }
 
       emitToAssignment(assignmentId, {
         type: "assignment.progress",

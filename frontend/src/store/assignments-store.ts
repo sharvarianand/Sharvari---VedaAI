@@ -26,6 +26,7 @@ const EMPTY_DRAFT: AssignmentDraft = {
     { id: "qt-4", type: "numerical", count: 5, marksPerQuestion: 5 },
   ],
   additionalInstructions: "",
+  language: "english",
 };
 
 function buildEmptyDraft(): AssignmentDraft {
