@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { logger } from "../config/logger.js";
+import Tesseract from "tesseract.js";
 
 const execFileAsync = promisify(execFile);
 // Keep grounding context short enough that it helps the model instead of
@@ -159,14 +160,33 @@ export async function extractMaterialText(
     return heuristic;
   }
 
-  // Images (jpeg/png) are accepted by the upload middleware but we don't OCR
-  // them in v1. Log so operators understand why the paper isn't grounded.
+  // Images (jpeg/png) are accepted by the upload middleware. We now OCR them!
   if (material.mime?.startsWith("image/")) {
-    logger.warn(
-      { path: material.storedPath, mime: material.mime },
-      "image material uploaded but OCR is not enabled — extractedText will be empty"
-    );
-    return "";
+    try {
+      logger.info({ path: material.storedPath }, "Running OCR on image material...");
+      // Initialize OCR with English language. The logger callback lets us see progress in debug mode.
+      const { data: { text } } = await Tesseract.recognize(
+        material.storedPath,
+        "eng",
+        { logger: m => logger.debug(m) }
+      );
+      
+      const cleaned = clip(normalizeWhitespace(text));
+      
+      if (!isMaterialTextUsable(cleaned)) {
+        logger.warn(
+          { path: material.storedPath },
+          "OCR completed but yielded no usable text — paper will be weakly grounded"
+        );
+        return "";
+      }
+      
+      logger.info({ length: cleaned.length }, "OCR completed successfully");
+      return cleaned;
+    } catch (err: any) {
+      logger.error({ err, path: material.storedPath }, "OCR extraction failed");
+      return "";
+    }
   }
 
   return "";
