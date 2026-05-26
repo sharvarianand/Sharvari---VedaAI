@@ -93,8 +93,8 @@ export function QuestionPaperView({ paper, lockedQuestionIds, onToggleLock }: Qu
                     {onToggleLock && (
                       <button
                         onClick={() => onToggleLock(q.id)}
-                        className={`ml-2 inline-flex items-center justify-center rounded p-1 transition-colors print:hidden ${
-                          isLocked ? "bg-amber-100 text-amber-700 hover:bg-amber-200" : "text-ink-muted hover:bg-surface-muted opacity-0 group-hover:opacity-100"
+                        className={`ml-2 inline-flex items-center justify-center rounded p-1 transition-all print:hidden ${
+                          isLocked ? "bg-amber-100 text-amber-700 hover:bg-amber-200 opacity-100" : "text-ink-muted hover:bg-surface-muted opacity-30 hover:opacity-100"
                         }`}
                         title={isLocked ? "Unlock Question" : "Lock Question (Keep unchanged on regenerate)"}
                       >

@@ -186,6 +186,11 @@ export const AssignmentService = {
     doc.error = undefined as unknown as string;
     doc.currentVersion = nextVersion;
 
+    // Sync draft with the finalized paper properties so list view stays updated
+    if (normalizedPaper.className) doc.draft.className = normalizedPaper.className;
+    if (normalizedPaper.subject) doc.draft.subject = normalizedPaper.subject;
+    if (normalizedPaper.schoolName) doc.draft.schoolName = normalizedPaper.schoolName;
+
     // Store variant paper (Set B) if present
     if (meta?.variantPaper) {
       (doc as any).variantPaper = normalizePaper(meta.variantPaper);
@@ -222,6 +227,11 @@ export const AssignmentService = {
       doc.status = "ready";
       doc.error = undefined as unknown as string;
       doc.currentVersion = nextVersion;
+      
+      // Sync draft with the edited paper properties so list view stays updated
+      if (normalizedPaper.className) doc.draft.className = normalizedPaper.className;
+      if (normalizedPaper.subject) doc.draft.subject = normalizedPaper.subject;
+      if (normalizedPaper.schoolName) doc.draft.schoolName = normalizedPaper.schoolName;
       if (!doc.paperVersions) {
         doc.paperVersions = [] as any;
       }
