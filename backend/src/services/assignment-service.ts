@@ -190,6 +190,7 @@ export const AssignmentService = {
     if (normalizedPaper.className) doc.draft.className = normalizedPaper.className;
     if (normalizedPaper.subject) doc.draft.subject = normalizedPaper.subject;
     if (normalizedPaper.schoolName) doc.draft.schoolName = normalizedPaper.schoolName;
+    doc.markModified("draft");
 
     // Store variant paper (Set B) if present
     if (meta?.variantPaper) {
@@ -232,6 +233,7 @@ export const AssignmentService = {
       if (normalizedPaper.className) doc.draft.className = normalizedPaper.className;
       if (normalizedPaper.subject) doc.draft.subject = normalizedPaper.subject;
       if (normalizedPaper.schoolName) doc.draft.schoolName = normalizedPaper.schoolName;
+      doc.markModified("draft");
       if (!doc.paperVersions) {
         doc.paperVersions = [] as any;
       }
