@@ -56,6 +56,8 @@ describe("buildPrompt", () => {
     });
     expect(user).toMatch(/ch-electricity\.pdf/);
     expect(user).toMatch(/Current, circuit, resistance/);
+    expect(user).toMatch(/STUDY MATERIAL \(AUTHORITATIVE SOURCE\)/);
+    expect(user).toMatch(/CRITICAL GROUNDING RULES/);
   });
 
   it("includes regenerate instructions when provided", () => {

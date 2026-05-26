@@ -5,8 +5,10 @@ import { logger } from "../config/logger.js";
 
 const execFileAsync = promisify(execFile);
 // Keep grounding context short enough that it helps the model instead of
-// bloating prompt latency for every generation call.
-const MAX_SNIPPET_CHARS = 16000;
+// bloating prompt latency for every generation call. We raised this from
+// 16k to 24k so longer chapters survive end-to-end after deduplication.
+const MAX_SNIPPET_CHARS = 24000;
+const MIN_USABLE_CHARS = 40;
 
 function normalizeWhitespace(input: string): string {
   return input.replace(/\s+/g, " ").trim();
@@ -50,6 +52,11 @@ async function extractPdfWithPdftotext(path: string): Promise<string | null> {
   }
 }
 
+/** True when the extracted text is long enough to actually ground a paper. */
+export function isMaterialTextUsable(text: string | undefined | null): boolean {
+  return !!text && text.trim().length >= MIN_USABLE_CHARS;
+}
+
 export async function extractMaterialText(
   material:
     | {
@@ -67,10 +74,27 @@ export async function extractMaterialText(
 
   if (material.mime === "application/pdf") {
     const extracted = await extractPdfWithPdftotext(material.storedPath);
-    if (extracted) return extracted;
+    if (extracted && isMaterialTextUsable(extracted)) return extracted;
 
     const buffer = await readFile(material.storedPath);
-    return extractPdfHeuristically(buffer);
+    const heuristic = extractPdfHeuristically(buffer);
+    if (!isMaterialTextUsable(heuristic)) {
+      logger.warn(
+        { path: material.storedPath },
+        "pdf material yielded no usable text — paper will be weakly grounded"
+      );
+    }
+    return heuristic;
+  }
+
+  // Images (jpeg/png) are accepted by the upload middleware but we don't OCR
+  // them in v1. Log so operators understand why the paper isn't grounded.
+  if (material.mime?.startsWith("image/")) {
+    logger.warn(
+      { path: material.storedPath, mime: material.mime },
+      "image material uploaded but OCR is not enabled — extractedText will be empty"
+    );
+    return "";
   }
 
   return "";

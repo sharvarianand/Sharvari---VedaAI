@@ -48,12 +48,28 @@ export function buildPrompt(input: GenerationInput): {
     )
     .join("\n");
 
-  const materialLine = input.material
-    ? `A reference document was uploaded: "${input.material.name}" (${input.material.mime}). Treat its filename and any title hints as the chapter focus.`
+  const hasMaterial = !!input.material;
+  const hasExtractedText = !!input.material?.extractedText?.trim();
+  const materialLine = hasMaterial
+    ? `A reference document was uploaded: "${input.material!.name}" (${input.material!.mime}). Treat its filename and any title hints as the chapter focus.`
     : `No reference material was uploaded — pick a representative chapter for the subject.`;
-  const materialExcerptLine = input.material?.extractedText?.trim()
-    ? `Use this extracted study material excerpt as grounding context:\n${input.material.extractedText.trim()}`
-    : `No material excerpt could be extracted, so rely on the requested subject, class, and teacher instructions.`;
+  const materialExcerptLine = hasExtractedText
+    ? `===== STUDY MATERIAL (AUTHORITATIVE SOURCE) =====
+${input.material!.extractedText!.trim()}
+===== END STUDY MATERIAL =====
+
+CRITICAL GROUNDING RULES (must follow when study material is provided):
+1. Every question you generate MUST be derived strictly from the facts, concepts, examples, names, numbers, definitions, formulas, and topics that appear in the STUDY MATERIAL above. Do NOT invent unrelated questions or pull from outside knowledge.
+2. Quote or paraphrase specifics from the material (terms, dates, characters, formulas, processes mentioned in the text). If a number, name, or definition is in the material, prefer using it in the question.
+3. For MCQs, the correct answer must be explicitly supported by the material. Distractors should be plausible but clearly wrong against the material.
+4. For fill-in-the-blanks, the blank must correspond to a term/phrase that actually appears in the material.
+5. For numerical problems, reuse formulas/values from the material whenever possible.
+6. For long/short answers, the model answer in the answerKey must be consistent with the material's content.
+7. Do NOT generate questions about topics that are not covered in the STUDY MATERIAL excerpt, even if they are common for this subject/class.
+8. If the material is too short or noisy to cover a requested question count, stay strictly within what the material supports and rephrase/expand around the same content rather than inventing new topics.`
+    : hasMaterial
+      ? `A material file was uploaded but no readable text could be extracted from it (it may be an image, scan, or encrypted PDF). The teacher EXPECTS the paper to be based on this file. Use the filename ("${input.material!.name}") as a strong topical hint and stay tightly on that chapter/topic — do NOT drift into unrelated parts of the subject.`
+      : `No material excerpt could be extracted, so rely on the requested subject, class, and teacher instructions.`;
   const regenerationLine = input.regenerationInstructions?.trim()
     ? `Revision instructions for this regeneration:\n${input.regenerationInstructions.trim()}`
     : `No revision-specific instructions were provided.`;
@@ -64,6 +80,7 @@ export function buildPrompt(input: GenerationInput): {
     "Output MUST be a single JSON object that strictly conforms to the schema described below.",
     "Do not include markdown, prose, or commentary outside the JSON.",
     "Generate a fresh paper each time; do not reuse the same wording or question order from earlier attempts.",
+    "If a STUDY MATERIAL block is provided in the user message, every question and answer MUST be derived from that material. Treat it as the single source of truth and do not introduce outside topics.",
     "Distribute difficulty roughly as 30% easy, 50% moderate, 20% hard.",
     "Group questions into at least one section (Section A, B, ...). Use multiple sections when more than one question type is requested.",
     "Each question must have a unique id (q1, q2, q3, ...) and the answerKey must reference those ids.",

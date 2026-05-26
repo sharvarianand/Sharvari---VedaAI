@@ -182,9 +182,58 @@ export class MockLlmAdapter implements LlmAdapter {
     return { paper: paperA };
   }
 
+  /**
+   * Mine 3–8 salient terms from the extracted study material so the deterministic
+   * paper at least references the uploaded file's vocabulary. This is a stand-in
+   * for what a real LLM would do — pick proper nouns / capitalised phrases and
+   * the longest non-stopword tokens, then inject them into question stems and
+   * fill-in-the-blank answers.
+   */
+  private extractMaterialTerms(text: string | undefined): string[] {
+    if (!text) return [];
+    const stop = new Set([
+      "the","and","for","with","that","this","from","into","have","has","was","were",
+      "are","but","not","you","your","their","them","they","its","also","such","each",
+      "which","when","where","while","what","who","whom","whose","why","how","than",
+      "then","there","these","those","some","many","much","more","most","less","few",
+      "one","two","three","four","five","about","above","below","under","over",
+    ]);
+    const seen = new Set<string>();
+    const out: string[] = [];
+    const propers = text.match(/\b[A-Z][a-zA-Z]{3,}(?:\s+[A-Z][a-zA-Z]{2,}){0,2}\b/g) ?? [];
+    for (const p of propers) {
+      const key = p.toLowerCase();
+      if (stop.has(key)) continue;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(p);
+      if (out.length >= 4) break;
+    }
+    const words = (text.match(/\b[a-zA-Z]{5,}\b/g) ?? []).map((w) => w.toLowerCase());
+    const freq = new Map<string, number>();
+    for (const w of words) {
+      if (stop.has(w)) continue;
+      freq.set(w, (freq.get(w) ?? 0) + 1);
+    }
+    const ranked = [...freq.entries()]
+      .sort((a, b) => b[1] - a[1] || b[0].length - a[0].length)
+      .map(([w]) => w);
+    for (const w of ranked) {
+      if (seen.has(w)) continue;
+      seen.add(w);
+      out.push(w);
+      if (out.length >= 8) break;
+    }
+    return out;
+  }
+
   private generateSingle(input: GenerationInput, variantLabel?: string): QuestionPaper {
     let qid = 0;
     let totalMarks = 0;
+    const materialTerms = this.extractMaterialTerms(input.material?.extractedText);
+    const materialFocus = materialTerms.length > 0
+      ? `${materialTerms.slice(0, 3).join(", ")}`
+      : "";
     const instructionSeed = hashInput(
       [
         input.subject,
@@ -226,6 +275,23 @@ export class MockLlmAdapter implements LlmAdapter {
                      .replace(/animal cell/i, "plant cell");
         }
 
+        // Ground the question in the uploaded material by referencing one of
+        // the mined terms. Without an API key this is the only way to make the
+        // deterministic paper actually reflect the uploaded study material.
+        if (materialTerms.length > 0) {
+          const term = materialTerms[(qid - 1) % materialTerms.length];
+          if (qt.type === "fill-blanks") {
+            text = `In the context of "${term}", ${text}`;
+          } else if (qt.type === "mcq") {
+            text = text.replace(
+              /^([^\n]+?)(\n\(A\))/,
+              (_m, stem, rest) => `${stem} (based on "${term}")${rest}`
+            );
+          } else {
+            text = `${text} (Refer to "${term}" from the uploaded material.)`;
+          }
+        }
+
         // Try to inject locked questions if any are present in the instructions
         if (lockedTextsQueue.length > 0) {
            text = lockedTextsQueue.shift()!;
@@ -242,13 +308,17 @@ export class MockLlmAdapter implements LlmAdapter {
       });
 
       const sectionTitle = SECTION_TITLES[sIdx] ?? `Section ${sIdx + 1}`;
+      const baseInstruction = tpl.instruction(qt.marksPerQuestion);
+      const groundedInstruction = materialFocus
+        ? `${baseInstruction} (Grounded in uploaded material: ${materialFocus}.)`
+        : baseInstruction;
       return {
         id: sectionId,
         title: variantLabel ? `${sectionTitle} (${variantLabel})` : sectionTitle,
         heading: tpl.heading,
         instruction: revisionNote
-          ? `${tpl.instruction(qt.marksPerQuestion)} Revision focus: ${revisionNote.split("CRITICAL INSTRUCTION")[0].trim()}`
-          : tpl.instruction(qt.marksPerQuestion),
+          ? `${groundedInstruction} Revision focus: ${revisionNote.split("CRITICAL INSTRUCTION")[0].trim()}`
+          : groundedInstruction,
         questions,
       };
     });
