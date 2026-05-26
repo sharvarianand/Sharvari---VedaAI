@@ -8,7 +8,7 @@ import { emitToAssignment } from "../sockets/index.js";
 import { NotFound } from "../middleware/error.js";
 import type { GenerationInput, QuestionPaper, PaperLanguage } from "../llm/types.js";
 import type { QuestionTypeConfig } from "../llm/types.js";
-import { extractMaterialText } from "./material-service.js";
+import { extractMaterialText, isMaterialTextUsable } from "./material-service.js";
 
 export interface CreateInput {
   title: string;
@@ -139,12 +139,46 @@ export const AssignmentService = {
     const d = doc.draft;
     let extractedText = d.material?.extractedText ?? "";
 
-    if (!extractedText && d.material?.storedPath) {
-      extractedText = await extractMaterialText(d.material);
-      if (extractedText) {
-        d.material.extractedText = extractedText;
+    // This happens when the DB was populated from a Docker container whose
+    // uploads directory was mounted at /app, but we're now running locally.
+    if (d.material?.storedPath) {
+      const dockerPrefix = "/app/uploads/";
+      if (d.material.storedPath.startsWith(dockerPrefix)) {
+        const relative = d.material.storedPath.slice(dockerPrefix.length);
+        d.material.storedPath = join(process.cwd(), "uploads", relative);
+        doc.markModified("draft");
         await doc.save();
       }
+    }
+
+    // Always re-extract if the cached text is empty OR fails the new
+    // readability checks (e.g. binary garbage from a prior failed extraction).
+    if (!isMaterialTextUsable(extractedText) && d.material?.storedPath) {
+      // Clear the bad cache so we don't keep reusing it
+      if (d.material) {
+        d.material.extractedText = "";
+      }
+      try {
+        extractedText = await extractMaterialText(d.material);
+        if (d.material) {
+          d.material.extractedText = extractedText;
+        }
+      } catch (err: any) {
+        // File might not exist on disk (deleted, or path mismatch).
+        // Proceed without material grounding instead of crashing the job.
+        if (err?.code === "ENOENT") {
+          extractedText = "";
+          if (d.material) {
+            d.material.extractedText = "";
+          }
+        } else {
+          throw err;
+        }
+      }
+      
+      // Save unconditionally so if it went from garbage to empty, it gets persisted
+      doc.markModified("draft");
+      await doc.save();
     }
 
     return {

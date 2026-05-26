@@ -9,6 +9,23 @@ const execFileAsync = promisify(execFile);
 // 16k to 24k so longer chapters survive end-to-end after deduplication.
 const MAX_SNIPPET_CHARS = 24000;
 const MIN_USABLE_CHARS = 40;
+/** Minimum fraction of alphabetic/space characters for text to be "readable". */
+const MIN_READABILITY_RATIO = 0.5;
+/** Minimum number of distinct English-like words (3+ alpha chars) required. */
+const MIN_WORD_COUNT = 5;
+
+/**
+ * PDF internal keywords that should never dominate extracted text.
+ * If these account for a large share of the "words", the extraction is garbage.
+ */
+const PDF_JUNK_KEYWORDS = new Set([
+  "endobj", "endstream", "xobject", "flatedecode", "stream", "obj",
+  "catalog", "filter", "length", "subtype", "type", "font",
+  "embeddedfiles", "nums", "count", "pages", "resources", "mediabox",
+  "contents", "procset", "extgstate", "baseencoding", "widths",
+  "fontdescriptor", "fontname", "fontbbox", "italicangle", "ascent",
+  "descent", "capheight", "stemv", "flags", "encoding", "tounicode",
+]);
 
 function normalizeWhitespace(input: string): string {
   return input.replace(/\s+/g, " ").trim();
@@ -28,33 +45,88 @@ function decodePdfLiteralEscapes(input: string): string {
     .replace(/\\\\/g, "\\");
 }
 
+/**
+ * Score how "readable" a piece of text is.  A score >= MIN_READABILITY_RATIO
+ * indicates genuine natural-language content rather than binary garbage or
+ * PDF structural keywords.
+ */
+function isReadableText(text: string): boolean {
+  if (!text || text.length < MIN_USABLE_CHARS) return false;
+
+  // 1. Check that a majority of characters are alphabetic or whitespace
+  const sample = text.slice(0, 2000);
+  const readableChars = [...sample].filter(
+    (c) => /[a-zA-Z\s]/.test(c)
+  ).length;
+  const ratio = readableChars / sample.length;
+  if (ratio < MIN_READABILITY_RATIO) return false;
+
+  // 2. Check for a minimum number of real words (3+ alpha chars)
+  const words = text.match(/[a-zA-Z]{3,}/g) ?? [];
+  if (words.length < MIN_WORD_COUNT) return false;
+
+  // 3. Check that PDF internal junk keywords don't dominate the text
+  const wordSample = words.slice(0, 200);
+  const junkCount = wordSample.filter((w) =>
+    PDF_JUNK_KEYWORDS.has(w.toLowerCase())
+  ).length;
+  const junkRatio = junkCount / wordSample.length;
+  if (junkRatio > 0.15) {
+    logger.debug(
+      { junkRatio: junkRatio.toFixed(2), junkCount, sampleSize: wordSample.length },
+      "text rejected: too many PDF-internal keywords"
+    );
+    return false;
+  }
+
+  return true;
+}
+
 function extractPdfHeuristically(buffer: Buffer): string {
   const raw = buffer.toString("latin1");
   const literalMatches = [...raw.matchAll(/\(([^()]*)\)/g)]
     .map((match) => decodePdfLiteralEscapes(match[1] ?? ""))
     .filter((value) => /[A-Za-z]{3,}/.test(value));
   if (literalMatches.length > 0) {
-    return clip(normalizeWhitespace(literalMatches.join(" ")));
+    const joined = clip(normalizeWhitespace(literalMatches.join(" ")));
+    // Validate that the heuristic output is actually readable text
+    if (isReadableText(joined)) return joined;
+    logger.debug("heuristic literal-match extraction produced unreadable text, trying ASCII runs");
   }
 
   const asciiRuns = raw.match(/[A-Za-z0-9,.;:()\-/"'%& ]{20,}/g) ?? [];
-  return clip(normalizeWhitespace(asciiRuns.join(" ")));
+  const joined = clip(normalizeWhitespace(asciiRuns.join(" ")));
+  // Validate ASCII-run output too
+  if (isReadableText(joined)) return joined;
+
+  logger.debug("heuristic ASCII-run extraction also produced unreadable text");
+  return "";
 }
 
 async function extractPdfWithPdftotext(path: string): Promise<string | null> {
   try {
     const { stdout } = await execFileAsync("pdftotext", ["-layout", path, "-"]);
     const cleaned = clip(normalizeWhitespace(stdout));
-    return cleaned || null;
+    if (!cleaned) return null;
+    // Even pdftotext can occasionally produce garbage on encrypted/scanned PDFs
+    if (!isReadableText(cleaned)) {
+      logger.debug({ path }, "pdftotext output failed readability check");
+      return null;
+    }
+    return cleaned;
   } catch (error) {
     logger.debug({ err: error, path }, "pdftotext unavailable or failed");
     return null;
   }
 }
 
-/** True when the extracted text is long enough to actually ground a paper. */
+/**
+ * True when the extracted text is both long enough and readable enough
+ * to actually ground a paper.  This is the gate that prevents binary
+ * garbage from being cached and reused across regeneration attempts.
+ */
 export function isMaterialTextUsable(text: string | undefined | null): boolean {
-  return !!text && text.trim().length >= MIN_USABLE_CHARS;
+  return !!text && isReadableText(text);
 }
 
 export async function extractMaterialText(

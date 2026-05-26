@@ -173,7 +173,11 @@ export default function AssignmentOutputPage({ params }: PageProps) {
           });
         });
         if (lockedTexts.length > 0) {
-          finalInstructions += `\n\nCRITICAL INSTRUCTION: You MUST perfectly retain the following exact questions in the new paper (do not change or remove them):\n${lockedTexts.map((t, i) => `${i+1}. ${t}`).join("\n")}`;
+          // IMPORTANT: do NOT instruct the LLM to "retain" the locked questions,
+          // otherwise it duplicates them at other positions. The backend worker
+          // re-inserts the locked questions at their ORIGINAL section/index
+          // automatically, so we just tell the LLM to avoid repeating them.
+          finalInstructions += `\n\nNOTE: ${lockedTexts.length} question(s) from the previous paper are locked and will be preserved automatically by the system at their original positions. Generate completely fresh questions for the rest of the paper. DO NOT include, paraphrase, or reuse the following locked questions in your output — they will be re-inserted programmatically:\n${lockedTexts.map((t, i) => `${i+1}. ${t}`).join("\n")}`;
         }
       }
 
