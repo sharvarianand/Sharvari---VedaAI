@@ -83,7 +83,7 @@ flowchart LR
 
 ### 🧠 The Generative Pipeline
 1. **Request Intake:** `POST /api/assignments` validates the input via Zod and instantly returns a `202 Accepted`, dropping a job into the Redis-backed **BullMQ**.
-2. **Context Extraction:** The Generation Worker extracts text from uploaded study material (`.pdf` via `pdftotext`, `.txt`).
+2. **Context Extraction:** The Generation Worker intelligently extracts text from uploaded study material, whether it's PDF (`pdftotext`), plain text, or even images (using **Tesseract.js** for in-house OCR).
 3. **LLM Orchestration:** The payload is injected into an advanced prompt chain. We use **OpenRouter (Nvidia Nemotron / Gemini Fallback)**.
 4. **Structured Output Enforcement:** The LLM output is piped through a strict **Zod Schema parser**. If the AI hallucinates bad JSON, it is caught and handled, ensuring the UI *never* breaks.
 5. **Real-Time Push:** Socket.IO pushes an `assignment.ready` event to the client. Zustand instantly merges the new paper into the global state, triggering a reactive UI update without polling.
